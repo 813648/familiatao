@@ -1,13 +1,7 @@
 <!DOCTYPE html>
 <!-- Árvore Genealógica Família Tão
-     Versão: v1.2.3
-     Alterações: botão "Aprovar" substituído por "Admin" com menu (Aprovar, Visitas)
-															   
-															  
-										   
-															 
-										 
-																												
+     Versão: v1.2.3-d1
+     Alterações: Adaptado para arquitetura Cloudflare D1
 -->
 <html lang="pt">
 <head>
@@ -17,7 +11,7 @@
   <script>
     (async function initSession() {
       try {
-        await fetch('/api/login-teste.php', { method: 'GET', credentials: 'include', cache: 'no-store', mode: 'same-origin' }).catch(()=>{});
+        await fetch('/api/session', { method: 'GET', credentials: 'include', cache: 'no-store', mode: 'same-origin' }).catch(()=>{});
       } catch (e) {}
     })();
   </script>
@@ -64,7 +58,6 @@
     .person.highlight { box-shadow:0 10px 28px rgba(2,6,23,0.12); transform: translateY(-2px); }
     .person.search-match { outline:4px solid rgba(0,122,255,0.12); transform: translateY(-6px); z-index:6; }
 
-    /* focus style for keyboard/announce from search */
     .person.focused-by-search { outline:3px solid rgba(11,132,255,0.14); box-shadow:0 8px 20px rgba(11,132,255,0.08); transform: translateY(-4px); z-index:7; }
 
     #lines{ position:absolute; top:0; left:0; pointer-events:none; z-index:2; transition:opacity .18s linear; }
@@ -73,7 +66,6 @@
 
     .overlay{ position:fixed; inset:0; background:rgba(0,0,0,0.45); display:none; z-index:1000; }
 
-    /* Modal: default centered with transform; mobile becomes fullscreen via media query */
     .modal{ position:fixed; left:50%; top:50%; transform:translate(-50%,-50%); background:#fff; border-radius:10px; padding:14px; width:420px; max-width:calc(100% - 40px); box-shadow:0 10px 30px rgba(2,6,23,0.16); display:none; z-index:1001; box-sizing:border-box; overflow:auto; max-height:90vh; }
     .modal.hidden-measure { visibility:hidden; display:block; }
     .modal h3{ margin:0 0 10px 0; font-size:16px; color:var(--primary); }
@@ -82,7 +74,6 @@
     .modal textarea { max-height:220px; resize:vertical; overflow:auto; }
     .modal .controls { display:flex; gap:8px; justify-content:flex-end; margin-top:8px; flex-wrap:wrap; }
 
-    /* Admin modal small */
     .admin-modal { width:320px; padding:12px; display:none; }
     .admin-modal .admin-actions { display:flex; gap:8px; justify-content:flex-end; margin-top:12px; }
 
@@ -95,7 +86,6 @@
       .search-results { width:100%; left:0; top:44px; }
       .person{ width:240px; padding:14px; }
       .person .obs { max-height:84px; font-size:13px; }
-      /* Mobile: modal becomes fullscreen and positioned at top-left (no translate) */
       .modal{ left:0; top:0; transform:none; width:100%; height:100%; max-width:100%; max-height:none; border-radius:0; padding:12px; overflow:auto; }
       .modal.hidden-measure { display:block; }
       .tree-area{ padding:12px; min-height: calc(100vh - 160px); }
@@ -107,7 +97,6 @@
       .search-results{ width:240px; top:34px; }
     }
 
-    /* when modal open, hide body scroll - toggled via JS */
     body.modal-open { overflow: hidden; }
   </style>
 </head>
@@ -125,10 +114,7 @@
       </div>
 
       <button id="fitBtn" class="btn" title="Ajustar ao ecrã">Ajustar ao ecrã</button>
-
-      <!-- Botão Admin substitui o botão Aprovar anterior -->
       <button id="adminBtn" class="btn">Admin</button>
-
       <button onclick="window.location.href='email.html'" class="btn">Contacto</button>
     </div>
   </header>
@@ -167,7 +153,6 @@
     </div>
   </div>
 
-  <!-- Admin modal -->
   <div id="adminModal" class="modal admin-modal" role="dialog" aria-modal="true" aria-hidden="true">
     <h3>Menu Administrativo</h3>
     <div style="font-size:13px;color:var(--muted)">Acesso com password administradora</div>
@@ -178,19 +163,15 @@
     </div>
   </div>
 
-  <!-- ARIA live region for screen readers (hidden visually) -->
   <div id="sr-announcer" aria-live="polite" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(1px,1px,1px,1px);white-space:nowrap;"></div>
 
   <script>
-    // Visual/layout constants ajustados
     const NODE_W = 280;
     const NODE_H = 86;
-    const GAP_X = 56; // aumentado
-    const GAP_Y = 60; // aumentado
-
+    const GAP_X = 56;
+    const GAP_Y = 60;
     const DOCS_BASE_PATH = '/docs/';
 
-    // renderizador seguro de Observações com marcação [[nome-do-ficheiro]]
     function renderObsWithDocs(obsText, docsBase) {
       if (!obsText) return '';
       docsBase = (docsBase || '').replace(/\/+$/, '') + '/';
@@ -200,12 +181,9 @@
         .replace(/>/g,'&gt;')
         .replace(/"/g,'&quot;');
 
-      // permitir token [[br]] para forçar quebra de linha
       obsText = String(obsText).replace(/\[\[br\]\]/gi, '\n');
-      // primeiro escape do texto e converter novas linhas
       const escaped = escapeHtml(obsText).replace(/\n/g, '<br>');
 
-      // substituir tokens [[nome-do-ficheiro]] por links seguros
       return escaped.replace(/\[\[(.*?)\]\]/g, function(_, name) {
         const safeName = String(name || '').trim();
         if (!/^[\w\-\.\s\/]+$/.test(safeName)) return escapeHtml('[[' + safeName + ']]');
@@ -215,17 +193,13 @@
       });
     }
 
-    // DOM-safe builder used when inserting nodes programmatically
     function buildObsElement(obsText, docsBase) {
       const container = document.createElement('div');
       container.className = 'obs';
       if (!obsText) return container;
       docsBase = (docsBase || '').replace(/\/+$/, '') + '/';
 
-      // substituir token [[br]] por newline antes de dividir
       obsText = String(obsText).replace(/\[\[br\]\]/gi, '\n');
-
-      // dividir por tokens [[...]] usando uma RegExp numa só linha
       const parts = obsText.split(/\[\[(.*?)\]\]/g);
       parts.forEach((part, i) => {
         if (i % 2 === 1) {
@@ -252,17 +226,14 @@
       return container;
     }
 
-    // keep-alive resiliente — usa URL relativa e ignora erros
-   // const KEEP_ALIVE_URL = '/keep-session-alive.php';
-   const KEEP_ALIVE_URL = '/keep-session-alive.html';
+    const KEEP_ALIVE_URL = '/api/keep-alive';
     function sendKeepAlive() {
       fetch(KEEP_ALIVE_URL, { method: 'GET', cache: 'no-store', credentials: 'include', mode: 'same-origin' })
         .then(()=>{})
         .catch(()=>{});
     }
-    const keepAliveTimer = setInterval(sendKeepAlive, 4 * 60 * 1000);
+    setInterval(sendKeepAlive, 4 * 60 * 1000);
 
-    // Interaction helpers
     let globalIsDragging = false;
     let lastTapTime = 0;
     function isTouchEvent(e){ return e && e.pointerType === 'touch'; }
@@ -270,18 +241,12 @@
       if (card && card._pressTimer){ clearTimeout(card._pressTimer); card._pressTimer = null; }
     }
 
-    // For ignoring clicks immediately after a drag/interaction
     let lastDragEndAt = 0;
     function markDragEnd() { lastDragEndAt = Date.now(); }
-    // reduzir valor para permitir clicks legítimos logo a seguir (40 ms)
     function clickAllowed() { return (Date.now() - lastDragEndAt) > 40; }
 
-    // New: suppress opening modal when selection comes from search
     let suppressModalUntil = 0;
-
-    // Admin password in-memory (cleared on page unload); only stored in JS session
     let adminPassword = null;
-
     let selectedPerson = null;
     let treeData = {};
     let computedPositions = {};
@@ -316,7 +281,6 @@
 
     function centerViewOnNode(nodeId) { const nodePos = computedPositions[nodeId]; if (!nodePos) return; const vw = area.clientWidth; const vh = area.clientHeight; const nodeCenterX = nodePos.x + NODE_W/2; const nodeCenterY = nodePos.y + (nodePos.h || NODE_H)/2; state.tx = vw/2 - nodeCenterX * state.scale; state.ty = vh/2 - nodeCenterY * state.scale; clampTranslate(); applyTransform(); }
 
-    // Fit button
     function fitToScreen() {
       const vw = area.clientWidth; const vh = area.clientHeight; const contentW = Math.max(inner.scrollWidth, inner.offsetWidth); const contentH = Math.max(inner.scrollHeight, inner.offsetHeight);
       if (contentW === 0 || contentH === 0) return;
@@ -327,7 +291,6 @@
     }
     fitBtn.addEventListener('click', fitToScreen);
 
-    // Wheel zoom (cursor-centered)
     area.addEventListener('wheel', (e) => {
       e.preventDefault();
       const areaRect = area.getBoundingClientRect();
@@ -339,7 +302,6 @@
       state.tx = mx - cx * newScale; state.ty = my - cy * newScale; state.scale = newScale; clampTranslate(); applyTransform();
     }, { passive: false });
 
-    // Pan for areas outside cards
     area.addEventListener('pointerdown', (e) => {
       if (e.button !== 0) return;
       if (e.target.closest('.person')) return;
@@ -349,7 +311,6 @@
     function onPan(e) { if (!state.panning) return; const dx = e.clientX - state.start.x; const dy = e.clientY - state.start.y; state.tx = state.startTx + dx; state.ty = state.startTy + dy; clampTranslate(); applyTransform(); }
     function endPan() { state.panning = false; document.body.style.cursor = ''; document.removeEventListener('pointermove', onPan); markDragEnd(); }
 
-    // Touch/pinch handling
     let activePointers = new Map();
     let pinchStart = null;
     area.addEventListener('pointerdown', (e) => {
@@ -390,7 +351,6 @@
     });
     area.addEventListener('pointercancel', (e) => { if (e.pointerType !== 'touch') return; activePointers.delete(e.pointerId); pinchStart = null; });
 
-    // Search UI
     const searchInput = document.getElementById('searchInput');
     const searchBtn = document.getElementById('searchBtn');
     const searchResultsEl = document.getElementById('searchResults');
@@ -418,7 +378,6 @@
     function clearSearchResults() { searchResultsEl.style.display = 'none'; searchResultsEl.innerHTML = ''; clearSearchHighlights(); }
     function escapeHtml(s) { return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
-    // NEW: focus and highlight member without opening modal
     function clearFocusedMember() {
       const prev = document.querySelector('.person.focused-by-search');
       if (prev) {
@@ -430,13 +389,11 @@
       const el = document.querySelector(`[data-id="${memberId}"]`);
       if (!el) return false;
       clearFocusedMember();
-      // Ensure element is focusable
       el.setAttribute('tabindex', '-1');
       el.classList.add('focused-by-search');
       if (options.scroll !== false) {
         centerViewOnNode(memberId);
       }
-      // Focus after scroll/transform settle
       setTimeout(() => {
         try { el.focus({ preventScroll: true }); } catch(_) { el.focus(); }
         if (srAnnouncer) srAnnouncer.textContent = `Membro selecionado: ${el.querySelector('h3') ? el.querySelector('h3').textContent : memberId}`;
@@ -444,16 +401,13 @@
       return true;
     }
 
-    // Select search result: focus and highlight only; do not open modal
     function selectSearchResult(index) {
       const id = lastSearchMatches[index]; if (!id) return;
       focusSearchMatch(index);
       const el = document.querySelector(`[data-id="${id}"]`);
       if (el) {
-        // prevent modal opening caused by residual click or global handlers
-        suppressModalUntil = Date.now() + 300; // 300ms window where modal opening is suppressed
+        suppressModalUntil = Date.now() + 300;
         highlightSearchResult(el);
-        // focus and center view; don't open modal
         focusMemberById(id);
       }
       clearSearchResults();
@@ -484,7 +438,6 @@
         if (m.obs) { const obsEl = buildObsElement(m.obs, DOCS_BASE_PATH); card.appendChild(obsEl); }
         if (m.status === 'pending') { const badge = document.createElement('div'); badge.className = 'badge'; badge.innerText = 'Pendente'; card.appendChild(badge); }
 
-        // --- Event wiring robusto (desktop mouse / touch) ---
         card.addEventListener('pointerenter', (ev) => {
           ev.currentTarget.classList.add('hovered');
           showTooltipSimple(card, ev);
@@ -499,20 +452,13 @@
           cancelInteractionTimers(card);
         });
 
-        // click handler: abre modal em cliques normais do rato; em touch continua a usar clickAllowed()
         card.addEventListener('click', (ev) => {
-          // não interferir com interações em links/inputs dentro do cartão
           if (ev.target.closest('a') || ev.target.closest('button') || ev.target.closest('input') || ev.target.closest('textarea')) return;
-
-          // se foi uma interação táctil (pointer events marcaram como touch) nós ainda queremos respeitar clickAllowed()
           if (isTouchEvent(ev)) {
             if (!clickAllowed()) return;
           } else {
-            // para rato: apenas previne se estamos em modo de drag
             if (globalIsDragging) return;
           }
-
-          // suprimir abertura do modal se a selecção veio da pesquisa recentemente
           if (Date.now() < suppressModalUntil) return;
 
           ev.stopPropagation();
@@ -520,7 +466,6 @@
           openModalAnchoredToPublish(card);
         });
 
-        // pointerdown: start timers ou detectar drag
         card.addEventListener('pointerdown', (ev) => {
           ev.stopPropagation();
           if (ev.pointerType === 'mouse') {
@@ -531,7 +476,7 @@
             cancelInteractionTimers(card);
             card._pressTimer = setTimeout(() => {
               card._pressTimer = null;
-              openModalAnchoredToPublish(card); // long-press opens editor
+              openModalAnchoredToPublish(card);
             }, 750);
             card._touchStart = { x: ev.clientX, y: ev.clientY, time: Date.now() };
           }
@@ -585,13 +530,11 @@
           }
         });
 
-        // Ensure links inside obs are clickable and don't trigger card handlers
         card.querySelectorAll('.obs a').forEach(a => {
           a.addEventListener('click', (ev) => { ev.stopPropagation(); });
           a.addEventListener('pointerdown', (ev) => { ev.stopPropagation(); cancelInteractionTimers(card); });
         });
 
-        // keyboard accessibility
         card.tabIndex = 0;
         card.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openModalAnchoredToPublish(card); } });
 
@@ -630,7 +573,6 @@
     function moveTooltip(e){ const tip = document.getElementById('tooltip'); const areaRect = area.getBoundingClientRect(); const x = e.clientX - areaRect.left; const y = e.clientY - areaRect.top; const maxLeft = area.clientWidth - tip.offsetWidth - 6; const maxTop  = area.clientHeight - tip.offsetHeight - 6; const left = Math.max(6, Math.min(x + 12, maxLeft)); const top  = Math.max(6, Math.min(y - 18, maxTop)); tip.style.left = `${left}px`; tip.style.top = `${top}px`; }
     function hideTooltip(){ const tip = document.getElementById('tooltip'); tip.style.display = 'none'; tip.textContent = ''; }
 
-    // create curved path with adaptive curvature and subtle stroke
     function createCurvePath(x1,y1,x2,y2){
       const dx = Math.abs(x2 - x1);
       const base = Math.max(40, Math.min(120, dx / 2));
@@ -646,7 +588,6 @@
       return path;
     }
 
-    // draw lines and optional generation separators
     function drawAllLines(){
       const logicalW = Math.max(inner.scrollWidth, inner.offsetWidth);
       const logicalH = Math.max(inner.scrollHeight, inner.offsetHeight);
@@ -656,7 +597,6 @@
       svg.style.height = logicalH + 'px';
       svg.innerHTML = '';
 
-      // optional: draw subtle horizontal separators per depth
       const depthsY = {};
       Object.values(computedPositions).forEach(p => {
         if (!p) return;
@@ -695,7 +635,6 @@
       });
     }
 
-    // Open modal: ensure centered and visible; lock body scroll; attach approve button behavior to current selectedPerson
     function openModalAnchoredToPublish(card){
       selectedPerson = card;
       const id = card.dataset.id; const data = treeData[id] || {};
@@ -726,7 +665,7 @@
     document.getElementById('closeBtn').addEventListener('click', closeModal);
     overlay.addEventListener('click', closeModal);
 
-    // Save button now publishes the whole tree and closes modal
+    // Endpoint atualizado para a API Cloudflare D1 (/api/arvore/publicar)
     document.getElementById('saveBtn').addEventListener('click', async () => {
       if (!selectedPerson) return;
       const id = selectedPerson.dataset.id;
@@ -750,7 +689,7 @@
       }
 
       try {
-        const res = await fetch('/api/publicar-arvore.php', {
+        const res = await fetch('/api/arvore/publicar', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(treeData)
@@ -765,12 +704,12 @@
       }
     });
 
-    // Approve individual member (Validar)
+    // Endpoint atualizado para D1 (/api/membro/aprovar)
     async function approveMember(id) {
       try {
         const password = prompt('Introduz a password do administrador para validar este membro:');
         if (password === null) return;
-        const res = await fetch('/api/aprovar-membro.php', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ id, password }) });
+        const res = await fetch('/api/membro/aprovar', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ id, password }) });
         const j = await res.json();
         if (!res.ok || j.status !== 'ok') throw new Error(j.error || 'Erro ao validar membro');
         if (treeData[id]) {
@@ -822,27 +761,20 @@
     function getDescendants(id, out = new Set()){ if(!id || !treeData[id]) return out; (treeData[id].filhos || []).forEach(childId=>{ if(!out.has(childId)){ out.add(childId); getDescendants(childId, out); } }); return out; }
     function markDescendants(rootId, enable){ if(!enable){ document.querySelectorAll('.person.descendant').forEach(el=>el.classList.remove('descendant')); return; } const desc = getDescendants(rootId); document.querySelectorAll('.person').forEach(el=> el.classList.toggle('descendant', desc.has(el.dataset.id))); }
 
-    // Global safety: ensure pointerup always marks drag end and add delegated click handler
     document.addEventListener('pointerup', (e) => {
       try { markDragEnd(); } catch(_) {}
       setTimeout(() => { globalIsDragging = false; }, 40);
     }, true);
 
-    // Delegated click handler para abertura de modal (mais robusto que listeners por nó)
     document.addEventListener('click', function (ev) {
-      // não interferir com elementos interactivos
       if (ev.target.closest('a') || ev.target.closest('button') || ev.target.closest('input') || ev.target.closest('textarea')) return;
 
       const card = ev.target.closest && ev.target.closest('.person');
       if (!card) return;
 
-      // suprimir abertura se veio da pesquisa recentemente
       if (Date.now() < (suppressModalUntil || 0)) return;
-
-      // se detectámos um drag real, bloquemos o click
       if (globalIsDragging) return;
 
-      // Para interações tácteis, respeitar clickAllowed; para rato, permitir se não houver drag
       const isTouch = ev.pointerType === 'touch' || ev.type === 'touchend' || ('ontouchstart' in window && ev.pointerType === undefined && ev.screenX !== 0);
       if (isTouch && !clickAllowed()) return;
 
@@ -851,7 +783,6 @@
       try { openModalAnchoredToPublish(card); } catch (err) { console.error('Erro ao abrir modal (delegado):', err); }
     }, true);
 
-    // limpar flags ao trocar visibilidade — evita estados presos após longos períodos inativos
     document.addEventListener('visibilitychange', () => {
       if (!document.hidden) {
         globalIsDragging = false;
@@ -860,25 +791,18 @@
       }
     });
 
-    // ao receber qualquer pointerdown global, limpar indicadores antigos
     document.addEventListener('pointerdown', () => {
       globalIsDragging = false;
       markDragEnd();
     }, { capture: true });
 
-    // -----------------------------
-    // Admin button & menu behavior
-    // -----------------------------
     function openAdminMenuWithPassword(pwd) {
       adminPassword = pwd || null;
-      // if no password provided, don't open
       if (!adminPassword) return;
-      // show admin modal
       overlay.style.display = 'block';
       document.body.classList.add('modal-open');
       adminModal.style.display = 'block';
       adminModal.style.visibility = 'visible';
-      // center admin modal
       if (window.innerWidth > 820) {
         adminModal.style.left = '50%'; adminModal.style.top = '50%'; adminModal.style.transform = 'translate(-50%,-50%)';
       } else {
@@ -887,7 +811,7 @@
     }
 
     function closeAdminMenu() {
-      adminPassword = null; // clear password from JS memory on close for safety
+      adminPassword = null;
       overlay.style.display = 'none';
       document.body.classList.remove('modal-open');
       adminModal.style.display = 'none';
@@ -895,10 +819,8 @@
     }
 
     adminBtn.addEventListener('click', () => {
-      // Prompt for password once, then open menu
       const pwd = prompt('Introduz a password do administrador:');
       if (pwd === null || pwd === '') return;
-      // keep the password only in-memory for next admin actions
       openAdminMenuWithPassword(pwd);
     });
 
@@ -906,15 +828,14 @@
       closeAdminMenu();
     });
 
-    // Approve all using stored adminPassword
+    // Endpoint atualizado para aprovar pendentes no D1 (/api/membro/aprovar-pendentes)
     adminApproveAllBtn.addEventListener('click', async () => {
       if (!adminPassword) {
         alert('Password não encontrada. Reabre o menu Admin e introduz a password.');
         return;
       }
       try {
-        // reuse existing endpoint /api/aprovar-pendentes.php
-        const res = await fetch('/api/aprovar-pendentes.php', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ ids:null, password: adminPassword }) });
+        const res = await fetch('/api/membro/aprovar-pendentes', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ ids:null, password: adminPassword }) });
         const j = await res.json();
         if (!res.ok) {
           if (j && j.error === 'invalid_password') throw new Error('Password inválida');
@@ -925,55 +846,44 @@
       } catch (err) {
         alert('Erro: ' + (err.message || err));
       } finally {
-        // opcional: fechar menu e limpar password
         closeAdminMenu();
       }
     });
 
-    // Visitas button: abrir /admin/visitas.php numa nova aba (passar a password por GET não é seguro; abrimos apenas a página)
-// Substitui o handler actual de adminVisitasBtn por isto:
-adminVisitasBtn.addEventListener('click', () => {
-  if (!adminPassword) {
-    alert('Password não encontrada. Reabre o menu Admin e introduz a password.');
-    return;
-  }
+    adminVisitasBtn.addEventListener('click', () => {
+      if (!adminPassword) {
+        alert('Password não encontrada. Reabre o menu Admin e introduz a password.');
+        return;
+      }
 
-  // Cria form POST direcionado para uma nova aba
-  const form = document.createElement('form');
-  form.method = 'POST';
-  form.action = '/admin/visitas.php';
-  form.target = '_blank';
-  form.style.display = 'none';
+      const form = document.createElement('form');
+      form.method = 'POST';
+      form.action = '/admin/visitas';
+      form.target = '_blank';
+      form.style.display = 'none';
 
-  // Campo com a password (nome do campo: password). Ajusta o nome se o servidor usar outro.
-  const inputPwd = document.createElement('input');
-  inputPwd.type = 'hidden';
-  inputPwd.name = 'password';
-  inputPwd.value = adminPassword;
-  form.appendChild(inputPwd);
+      const inputPwd = document.createElement('input');
+      inputPwd.type = 'hidden';
+      inputPwd.name = 'password';
+      inputPwd.value = adminPassword;
+      form.appendChild(inputPwd);
 
-  // Se precisares de outro parâmetro (ex.: token, timestamp), adiciona aqui
-
-  document.body.appendChild(form);
-  form.submit();
-
-  // limpeza do DOM; mantemos adminPassword em memória (não a apagamos automaticamente)
-  form.remove();
-  closeAdminMenu();
-});
-
+      document.body.appendChild(form);
+      form.submit();
+      form.remove();
+      closeAdminMenu();
+    });
 
     overlay.addEventListener('click', () => {
-      // fechar qualquer modal aberto (editor ou admin)
       if (adminModal.style.display === 'block') closeAdminMenu();
       else closeModal();
     });
 
-    // Load and setup
+    // Carrega a árvore diretamente da nova rota de API baseada em D1
     async function carregarArvoreValidada() {
       try {
-        const res = await fetch('/dados-arvore/oficial/arvore-validada.json', { cache:'no-store' });
-        if (!res.ok) throw new Error('Ficheiro não encontrado');
+        const res = await fetch('/api/arvore', { cache:'no-store' });
+        if (!res.ok) throw new Error('Erro ao carregar dados da árvore');
         treeData = await res.json();
         construirArvore();
         state.scale = 1; state.tx = 0; state.ty = 0;
@@ -993,29 +903,20 @@ adminVisitasBtn.addEventListener('click', () => {
     const observer = new MutationObserver(() => { layoutTree(); measureHeights(); requestAnimationFrame(drawAllLines); });
     observer.observe(treeEl, { childList:true, subtree:true, attributes:true });
 
-    // Approvar Todos legacy handler removed; replaced by admin flow above
-																																																														
-																																																																																																																																																																																																																																					   
-	   
-
     window.addEventListener('load', () => { carregarArvoreValidada(); setSvgVisibilityForDevice(); });
       
- (function(){
-  try {
-    // envia um ping discreto ao servidor; não bloqueia navegação
-    var url = '/api/log-visit.php';
-    var payload = JSON.stringify({ path: location.pathname });
-    if (navigator.sendBeacon) {
-      var blob = new Blob([payload], { type: 'application/json' });
-      navigator.sendBeacon(url, blob);
-    } else {
-      // fallback leve (não bloqueante)
-      fetch(url, { method: 'POST', body: payload, credentials: 'include', keepalive: true }).catch(()=>{});
-    }
-  } catch (e) { /* silencioso */ }
-})();
-      
+   (function(){
+    try {
+      var url = '/api/log-visit';
+      var payload = JSON.stringify({ path: location.pathname });
+      if (navigator.sendBeacon) {
+        var blob = new Blob([payload], { type: 'application/json' });
+        navigator.sendBeacon(url, blob);
+      } else {
+        fetch(url, { method: 'POST', body: payload, credentials: 'include', keepalive: true }).catch(()=>{});
+      }
+    } catch (e) {}
+  })();
   </script>
-        <p><?php include 'counter.php'; ?></p>
 </body>
 </html>
