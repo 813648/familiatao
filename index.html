@@ -1,0 +1,1021 @@
+<!DOCTYPE html>
+<!-- Árvore Genealógica Família Tão
+     Versão: v1.2.3
+     Alterações: botão "Aprovar" substituído por "Admin" com menu (Aprovar, Visitas)
+															   
+															  
+										   
+															 
+										 
+																												
+-->
+<html lang="pt">
+<head>
+  <meta charset="utf-8" />
+  <title>Árvore Genealógica Família Tão</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <script>
+    (async function initSession() {
+      try {
+        await fetch('/api/login-teste.php', { method: 'GET', credentials: 'include', cache: 'no-store', mode: 'same-origin' }).catch(()=>{});
+      } catch (e) {}
+    })();
+  </script>
+  <style>
+    :root{ --primary:#007BFF; --muted:#6b7280; --card-bg:#fff; --accent:#ff9800; --search-bg:#fff; --search-border:#e6edf3; }
+    html,body{ height:100%; margin:0; }
+    body{ font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial; padding:18px; background:#f4f6f8; color:#111827; -webkit-user-select:none; user-select:none; box-sizing:border-box; }
+    *,*::before,*::after{ box-sizing:inherit; }
+
+    header{ display:flex; align-items:center; justify-content:space-between; gap:12px; margin:0 0 14px 0; flex-wrap:wrap; }
+    h1{ margin:0; color:var(--primary); font-size:20px; }
+
+    .header-controls { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+
+    .search-wrap { position:relative; display:flex; gap:6px; align-items:center; }
+    .search-input { width:220px; padding:6px 8px; border:1px solid var(--search-border); border-radius:6px; font-size:14px; background:var(--search-bg); }
+    .search-btn { padding:6px 10px; border-radius:6px; border:0; background:var(--primary); color:#fff; cursor:pointer; font-weight:600; }
+    .search-results { position:absolute; top:38px; left:0; width:320px; max-height:260px; overflow:auto; background:#fff; border:1px solid #e6edf3; border-radius:8px; box-shadow:0 8px 24px rgba(2,6,23,0.08); z-index:1200; display:none; }
+    .search-item { padding:8px 10px; border-bottom:1px solid #f1f5f9; cursor:pointer; font-size:14px; color:#111827; }
+    .search-item:hover, .search-item.active { background:#f1f7ff; color:var(--primary); }
+    .search-empty { padding:10px; color:var(--muted); font-size:13px; }
+
+    .btn { background:var(--primary); color:#fff; border:0; padding:8px 10px; border-radius:8px; cursor:pointer; font-weight:600; white-space:nowrap; }
+    .btn.secondary { background:#6b7280; }
+    .btn.danger { background:#dc3545; }
+    #fitBtn { border-radius:8px; padding:8px 12px; background:#0b74ff; color:#fff; border:0; box-shadow:none; }
+
+    .tree-area{ position:relative; width:100%; min-height: calc(100vh - 120px); background:var(--card-bg); border-radius:10px; padding:18px; box-shadow:0 6px 18px rgba(16,24,40,0.06); overflow:hidden; touch-action:none; display:block; }
+
+    .tree-inner { position:absolute; left:0; top:0; transform-origin:0 0; will-change:transform; }
+    .tree-container{ position:relative; display:block; padding:10px; min-height:300px; }
+    .generation{ display:block; position:relative; }
+
+    .person{ background:var(--card-bg); border:2px solid var(--primary); border-radius:10px; padding:16px; width:280px; text-align:center; cursor:pointer; box-shadow:0 6px 18px rgba(2,6,23,0.06); position:absolute; z-index:3; transition:transform .14s ease, background-color .12s ease, border-color .12s ease, box-shadow .14s ease; box-sizing: border-box; }
+    .person h3{ margin:0; font-size:16px; color:var(--primary); word-break:break-word; }
+    .person p{ margin:6px 0 0; font-size:13px; color:var(--muted); word-break:break-word; text-align:left; }
+
+    .person .obs { display:block; max-height:110px; overflow:auto; margin-top:8px; padding:8px; background:rgba(0,0,0,0.02); border-radius:6px; font-size:13px; color:var(--muted); text-align:left; white-space:normal; }
+    .person .doc-link { color:var(--accent); font-weight:600; text-decoration:none; }
+    .person .badge { position:absolute; top:8px; right:8px; background:#ffeb99; color:#6b4500; font-size:12px; padding:4px 6px; border-radius:6px; font-weight:700; border:1px solid rgba(0,0,0,0.06); z-index:4; }
+
+    .person.hovered { background:#fff8e6; border-color:#ffb800; transform: translateY(-4px); box-shadow:0 10px 26px rgba(16,24,40,0.12); }
+    .person.descendant { background:#e8f6ff; border-color:#66a8ff; transform: translateY(-1px); box-shadow:0 6px 16px rgba(12,36,70,0.08); }
+    .person.highlight { box-shadow:0 10px 28px rgba(2,6,23,0.12); transform: translateY(-2px); }
+    .person.search-match { outline:4px solid rgba(0,122,255,0.12); transform: translateY(-6px); z-index:6; }
+
+    /* focus style for keyboard/announce from search */
+    .person.focused-by-search { outline:3px solid rgba(11,132,255,0.14); box-shadow:0 8px 20px rgba(11,132,255,0.08); transform: translateY(-4px); z-index:7; }
+
+    #lines{ position:absolute; top:0; left:0; pointer-events:none; z-index:2; transition:opacity .18s linear; }
+
+    #tooltip { position:absolute; pointer-events:none; padding:6px 10px; border-radius:8px; font-size:13px; max-width:220px; line-height:1.2; z-index:9999; color:#fff; box-shadow:0 6px 18px rgba(2,6,23,0.12); border:1px solid rgba(255,255,255,0.04); background:rgba(8,12,16,0.18); backdrop-filter:blur(3px); text-align:center; font-weight:700; }
+
+    .overlay{ position:fixed; inset:0; background:rgba(0,0,0,0.45); display:none; z-index:1000; }
+
+    /* Modal: default centered with transform; mobile becomes fullscreen via media query */
+    .modal{ position:fixed; left:50%; top:50%; transform:translate(-50%,-50%); background:#fff; border-radius:10px; padding:14px; width:420px; max-width:calc(100% - 40px); box-shadow:0 10px 30px rgba(2,6,23,0.16); display:none; z-index:1001; box-sizing:border-box; overflow:auto; max-height:90vh; }
+    .modal.hidden-measure { visibility:hidden; display:block; }
+    .modal h3{ margin:0 0 10px 0; font-size:16px; color:var(--primary); }
+    .modal label{ display:block; font-size:13px; margin:8px 0 4px; color:#111827; }
+    .modal input, .modal textarea { width:100%; padding:8px; margin-bottom:6px; border:1px solid #e6edf3; border-radius:6px; font-size:14px; box-sizing: border-box; }
+    .modal textarea { max-height:220px; resize:vertical; overflow:auto; }
+    .modal .controls { display:flex; gap:8px; justify-content:flex-end; margin-top:8px; flex-wrap:wrap; }
+
+    /* Admin modal small */
+    .admin-modal { width:320px; padding:12px; display:none; }
+    .admin-modal .admin-actions { display:flex; gap:8px; justify-content:flex-end; margin-top:12px; }
+
+    @media (max-width:820px){
+      body{ padding:10px; }
+      header{ flex-direction:column; align-items:flex-start; gap:8px; }
+      .header-controls{ width:100%; display:flex; gap:8px; justify-content:space-between; align-items:center; }
+      .search-wrap { order:2; width:100%; display:flex; gap:6px; }
+      .search-input { width:100%; }
+      .search-results { width:100%; left:0; top:44px; }
+      .person{ width:240px; padding:14px; }
+      .person .obs { max-height:84px; font-size:13px; }
+      /* Mobile: modal becomes fullscreen and positioned at top-left (no translate) */
+      .modal{ left:0; top:0; transform:none; width:100%; height:100%; max-width:100%; max-height:none; border-radius:0; padding:12px; overflow:auto; }
+      .modal.hidden-measure { display:block; }
+      .tree-area{ padding:12px; min-height: calc(100vh - 160px); }
+      #lines { display:block; }
+    }
+    @media (max-width:520px){
+      .person{ width:220px; padding:12px; }
+      .search-input{ width:140px; }
+      .search-results{ width:240px; top:34px; }
+    }
+
+    /* when modal open, hide body scroll - toggled via JS */
+    body.modal-open { overflow: hidden; }
+  </style>
+</head>
+<body>
+  <header>
+    <div>
+      <h1>Árvore Genealógica Família Tão</h1>
+    </div>
+
+    <div class="header-controls">
+      <div class="search-wrap" id="searchWrap">
+        <input id="searchInput" class="search-input" placeholder="Procurar por nome..." aria-label="Pesquisar nome" />
+        <button id="searchBtn" class="search-btn">Procurar</button>
+        <div id="searchResults" class="search-results" role="listbox" aria-label="Resultados da pesquisa"></div>
+      </div>
+
+      <button id="fitBtn" class="btn" title="Ajustar ao ecrã">Ajustar ao ecrã</button>
+
+      <!-- Botão Admin substitui o botão Aprovar anterior -->
+      <button id="adminBtn" class="btn">Admin</button>
+
+      <button onclick="window.location.href='email.html'" class="btn">Contacto</button>
+    </div>
+  </header>
+
+  <div class="tree-area" id="treeArea">
+    <div id="tooltip" style="display:none;"></div>
+    <div id="treeInner" class="tree-inner">
+      <svg id="lines" xmlns="http://www.w3.org/2000/svg"></svg>
+      <div class="tree-container" id="tree"></div>
+    </div>
+  </div>
+
+  <div id="overlay" class="overlay"></div>
+
+  <div id="modal" class="modal" role="dialog" aria-modal="true">
+    <h3>Editar Membro</h3>
+
+    <label for="nome">Nome</label>
+    <input id="nome" name="nome" placeholder="Nome" aria-label="Nome do membro" />
+
+    <label for="nat">Naturalidade</label>
+    <input id="nat" name="naturalidade" placeholder="Naturalidade" aria-label="Naturalidade" />
+
+    <label for="matr">Matrimónios</label>
+    <input id="matr" name="matrimonio" placeholder="Matrimónios" aria-label="Matrimónios" />
+
+    <label for="obs">Observações</label>
+    <textarea id="obs" name="obs" rows="6" placeholder="Observações. Use Enter para nova linha ou [[br]] para forçar quebra." aria-label="Observações"></textarea>
+
+    <div class="controls">
+      <button class="btn" id="approveMemberBtn">Validar</button>
+      <button class="btn" id="saveBtn">Publicar</button>
+      <button class="btn" id="addChildBtn">Adicionar Filho</button>
+      <button class="btn danger" id="delBtn">Apagar</button>
+      <button class="btn secondary" id="closeBtn">Fechar</button>
+    </div>
+  </div>
+
+  <!-- Admin modal -->
+  <div id="adminModal" class="modal admin-modal" role="dialog" aria-modal="true" aria-hidden="true">
+    <h3>Menu Administrativo</h3>
+    <div style="font-size:13px;color:var(--muted)">Acesso com password administradora</div>
+    <div class="admin-actions">
+      <button id="adminApproveAllBtn" class="btn">Aprovar</button>
+      <button id="adminVisitasBtn" class="btn secondary">Visitas</button>
+      <button id="adminCloseBtn" class="btn secondary">Fechar</button>
+    </div>
+  </div>
+
+  <!-- ARIA live region for screen readers (hidden visually) -->
+  <div id="sr-announcer" aria-live="polite" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(1px,1px,1px,1px);white-space:nowrap;"></div>
+
+  <script>
+    // Visual/layout constants ajustados
+    const NODE_W = 280;
+    const NODE_H = 86;
+    const GAP_X = 56; // aumentado
+    const GAP_Y = 60; // aumentado
+
+    const DOCS_BASE_PATH = '/docs/';
+
+    // renderizador seguro de Observações com marcação [[nome-do-ficheiro]]
+    function renderObsWithDocs(obsText, docsBase) {
+      if (!obsText) return '';
+      docsBase = (docsBase || '').replace(/\/+$/, '') + '/';
+      const escapeHtml = s => String(s)
+        .replace(/&/g,'&amp;')
+        .replace(/</g,'&lt;')
+        .replace(/>/g,'&gt;')
+        .replace(/"/g,'&quot;');
+
+      // permitir token [[br]] para forçar quebra de linha
+      obsText = String(obsText).replace(/\[\[br\]\]/gi, '\n');
+      // primeiro escape do texto e converter novas linhas
+      const escaped = escapeHtml(obsText).replace(/\n/g, '<br>');
+
+      // substituir tokens [[nome-do-ficheiro]] por links seguros
+      return escaped.replace(/\[\[(.*?)\]\]/g, function(_, name) {
+        const safeName = String(name || '').trim();
+        if (!/^[\w\-\.\s\/]+$/.test(safeName)) return escapeHtml('[[' + safeName + ']]');
+        const url = docsBase + encodeURIComponent(safeName).replace(/%2F/g, '/');
+        const label = escapeHtml(safeName);
+        return `<a href="${url}" target="_blank" rel="noopener noreferrer" class="doc-link">${label}</a>`;
+      });
+    }
+
+    // DOM-safe builder used when inserting nodes programmatically
+    function buildObsElement(obsText, docsBase) {
+      const container = document.createElement('div');
+      container.className = 'obs';
+      if (!obsText) return container;
+      docsBase = (docsBase || '').replace(/\/+$/, '') + '/';
+
+      // substituir token [[br]] por newline antes de dividir
+      obsText = String(obsText).replace(/\[\[br\]\]/gi, '\n');
+
+      // dividir por tokens [[...]] usando uma RegExp numa só linha
+      const parts = obsText.split(/\[\[(.*?)\]\]/g);
+      parts.forEach((part, i) => {
+        if (i % 2 === 1) {
+          const safeName = part.trim();
+          if (/^[\w\-\.\s\/]+$/.test(safeName)) {
+            const a = document.createElement('a');
+            a.href = docsBase + encodeURIComponent(safeName).replace(/%2F/g, '/');
+            a.target = '_blank';
+            a.rel = 'noopener noreferrer';
+            a.className = 'doc-link';
+            a.textContent = safeName;
+            container.appendChild(a);
+          } else {
+            container.appendChild(document.createTextNode('[[' + safeName + ']]'));
+          }
+        } else {
+          const lines = part.split('\n');
+          for (let li = 0; li < lines.length; li++) {
+            if (li) container.appendChild(document.createElement('br'));
+            container.appendChild(document.createTextNode(lines[li]));
+          }
+        }
+      });
+      return container;
+    }
+
+    // keep-alive resiliente — usa URL relativa e ignora erros
+   // const KEEP_ALIVE_URL = '/keep-session-alive.php';
+   const KEEP_ALIVE_URL = '/keep-session-alive.html';
+    function sendKeepAlive() {
+      fetch(KEEP_ALIVE_URL, { method: 'GET', cache: 'no-store', credentials: 'include', mode: 'same-origin' })
+        .then(()=>{})
+        .catch(()=>{});
+    }
+    const keepAliveTimer = setInterval(sendKeepAlive, 4 * 60 * 1000);
+
+    // Interaction helpers
+    let globalIsDragging = false;
+    let lastTapTime = 0;
+    function isTouchEvent(e){ return e && e.pointerType === 'touch'; }
+    function cancelInteractionTimers(card){
+      if (card && card._pressTimer){ clearTimeout(card._pressTimer); card._pressTimer = null; }
+    }
+
+    // For ignoring clicks immediately after a drag/interaction
+    let lastDragEndAt = 0;
+    function markDragEnd() { lastDragEndAt = Date.now(); }
+    // reduzir valor para permitir clicks legítimos logo a seguir (40 ms)
+    function clickAllowed() { return (Date.now() - lastDragEndAt) > 40; }
+
+    // New: suppress opening modal when selection comes from search
+    let suppressModalUntil = 0;
+
+    // Admin password in-memory (cleared on page unload); only stored in JS session
+    let adminPassword = null;
+
+    let selectedPerson = null;
+    let treeData = {};
+    let computedPositions = {};
+    let lastSearchMatches = [];
+    let lastSearchIndex = -1;
+
+    const state = { scale: 1, minScale: 0.25, maxScale: 3.0, tx: 0, ty: 0, panning: false, start: null, startTx: 0, startTy: 0 };
+
+    const area = document.getElementById('treeArea');
+    const inner = document.getElementById('treeInner');
+    const treeEl = document.getElementById('tree');
+    const svg = document.getElementById('lines');
+    const fitBtn = document.getElementById('fitBtn');
+    const modal = document.getElementById('modal');
+    const overlay = document.getElementById('overlay');
+    const approveMemberBtn = document.getElementById('approveMemberBtn');
+
+    const adminBtn = document.getElementById('adminBtn');
+    const adminModal = document.getElementById('adminModal');
+    const adminApproveAllBtn = document.getElementById('adminApproveAllBtn');
+    const adminVisitasBtn = document.getElementById('adminVisitasBtn');
+    const adminCloseBtn = document.getElementById('adminCloseBtn');
+
+    function applyTransform() { inner.style.transform = `translate(${state.tx}px, ${state.ty}px) scale(${state.scale})`; requestAnimationFrame(drawAllLines); }
+    function clampTranslate() {
+      const margin = 200; const contentW = Math.max(inner.scrollWidth, inner.offsetWidth); const contentH = Math.max(inner.scrollHeight, inner.offsetHeight);
+      const vw = area.clientWidth; const vh = area.clientHeight;
+      const minTx = Math.min(margin, vw - contentW * state.scale - margin); const maxTx = margin;
+      const minTy = Math.min(margin, vh - contentH * state.scale - margin); const maxTy = margin;
+      state.tx = Math.max(minTx, Math.min(maxTx, state.tx)); state.ty = Math.max(minTy, Math.min(maxTy, state.ty));
+    }
+
+    function centerViewOnNode(nodeId) { const nodePos = computedPositions[nodeId]; if (!nodePos) return; const vw = area.clientWidth; const vh = area.clientHeight; const nodeCenterX = nodePos.x + NODE_W/2; const nodeCenterY = nodePos.y + (nodePos.h || NODE_H)/2; state.tx = vw/2 - nodeCenterX * state.scale; state.ty = vh/2 - nodeCenterY * state.scale; clampTranslate(); applyTransform(); }
+
+    // Fit button
+    function fitToScreen() {
+      const vw = area.clientWidth; const vh = area.clientHeight; const contentW = Math.max(inner.scrollWidth, inner.offsetWidth); const contentH = Math.max(inner.scrollHeight, inner.offsetHeight);
+      if (contentW === 0 || contentH === 0) return;
+      const scaleX = (vw - 80) / contentW; const scaleY = (vh - 120) / contentH;
+      const target = Math.max(state.minScale, Math.min(state.maxScale, Math.min(scaleX, scaleY)));
+      state.scale = target; state.tx = Math.round((vw - contentW * state.scale) / 2); state.ty = Math.round((vh - contentH * state.scale) / 6);
+      clampTranslate(); applyTransform();
+    }
+    fitBtn.addEventListener('click', fitToScreen);
+
+    // Wheel zoom (cursor-centered)
+    area.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      const areaRect = area.getBoundingClientRect();
+      const mx = e.clientX - areaRect.left; const my = e.clientY - areaRect.top;
+      const delta = -e.deltaY; const factor = Math.exp(delta * 0.0014);
+      const newScale = Math.max(state.minScale, Math.min(state.maxScale, state.scale * factor));
+      if (newScale === state.scale) return;
+      const cx = (mx - state.tx) / state.scale; const cy = (my - state.ty) / state.scale;
+      state.tx = mx - cx * newScale; state.ty = my - cy * newScale; state.scale = newScale; clampTranslate(); applyTransform();
+    }, { passive: false });
+
+    // Pan for areas outside cards
+    area.addEventListener('pointerdown', (e) => {
+      if (e.button !== 0) return;
+      if (e.target.closest('.person')) return;
+      state.panning = true; state.start = { x: e.clientX, y: e.clientY }; state.startTx = state.tx; state.startTy = state.ty; document.body.style.cursor = 'grabbing';
+      document.addEventListener('pointermove', onPan); document.addEventListener('pointerup', endPan, { once: true });
+    });
+    function onPan(e) { if (!state.panning) return; const dx = e.clientX - state.start.x; const dy = e.clientY - state.start.y; state.tx = state.startTx + dx; state.ty = state.startTy + dy; clampTranslate(); applyTransform(); }
+    function endPan() { state.panning = false; document.body.style.cursor = ''; document.removeEventListener('pointermove', onPan); markDragEnd(); }
+
+    // Touch/pinch handling
+    let activePointers = new Map();
+    let pinchStart = null;
+    area.addEventListener('pointerdown', (e) => {
+      if (e.pointerType !== 'touch') return;
+      try { area.setPointerCapture(e.pointerId); } catch(_) {}
+      activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (activePointers.size === 2) {
+        const pts = Array.from(activePointers.values());
+        pinchStart = { dist: Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y), center: { x: (pts[0].x + pts[1].x)/2, y: (pts[0].y + pts[1].y)/2 }, scale: state.scale, tx: state.tx, ty: state.ty };
+      }
+    });
+    area.addEventListener('pointermove', (e) => {
+      if (e.pointerType !== 'touch') return;
+      if (!activePointers.has(e.pointerId)) return;
+      activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (activePointers.size === 2 && pinchStart) {
+        const pts = Array.from(activePointers.values());
+        const dist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+        const factor = dist / pinchStart.dist;
+        const newScale = Math.max(state.minScale, Math.min(state.maxScale, pinchStart.scale * factor));
+        const rect = inner.getBoundingClientRect();
+        const mx = pinchStart.center.x - rect.left;
+        const my = pinchStart.center.y - rect.top;
+        const cx = (mx - pinchStart.tx) / pinchStart.scale;
+        const cy = (my - pinchStart.ty) / pinchStart.scale;
+        state.scale = newScale;
+        state.tx = mx - cx * newScale;
+        state.ty = my - cy * newScale;
+        clampTranslate(); applyTransform();
+      }
+    });
+    area.addEventListener('pointerup', (e) => {
+      if (e.pointerType !== 'touch') return;
+      activePointers.delete(e.pointerId);
+      pinchStart = activePointers.size === 2 ? pinchStart : null;
+      try { area.releasePointerCapture(e.pointerId); } catch(_) {}
+      markDragEnd();
+    });
+    area.addEventListener('pointercancel', (e) => { if (e.pointerType !== 'touch') return; activePointers.delete(e.pointerId); pinchStart = null; });
+
+    // Search UI
+    const searchInput = document.getElementById('searchInput');
+    const searchBtn = document.getElementById('searchBtn');
+    const searchResultsEl = document.getElementById('searchResults');
+    const srAnnouncer = document.getElementById('sr-announcer');
+
+    function normalizeText(s) { return String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, ''); }
+    function searchPerson(query) {
+      clearSearchResults(); lastSearchMatches = []; lastSearchIndex = -1;
+      const q = normalizeText(query).trim(); if (!q) return;
+      const matches = Object.values(treeData).filter(m => normalizeText(m.nome || '').includes(q));
+      lastSearchMatches = matches.map(m => m.id); showSearchResults(matches);
+    }
+    function showSearchResults(matches) {
+      if (!matches || matches.length === 0) { searchResultsEl.innerHTML = '<div class="search-empty">Nenhum resultado</div>'; searchResultsEl.style.display = 'block'; return; }
+      searchResultsEl.innerHTML = '';
+      matches.forEach((m, idx) => {
+        const div = document.createElement('div'); div.className = 'search-item'; div.tabIndex = 0; div.dataset.id = m.id;
+        div.innerHTML = `<strong>${escapeHtml(m.nome || '')}</strong><div style="font-size:12px;color:var(--muted)">${escapeHtml(m.naturalidade || '')}</div>`;
+        div.addEventListener('click', (ev) => { ev.preventDefault(); ev.stopPropagation(); selectSearchResult(idx); });
+        div.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); selectSearchResult(idx); } if (e.key === 'ArrowDown') focusNextSearch(idx); if (e.key === 'ArrowUp') focusPrevSearch(idx); });
+        searchResultsEl.appendChild(div);
+      });
+      searchResultsEl.style.display = 'block';
+    }
+    function clearSearchResults() { searchResultsEl.style.display = 'none'; searchResultsEl.innerHTML = ''; clearSearchHighlights(); }
+    function escapeHtml(s) { return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+    // NEW: focus and highlight member without opening modal
+    function clearFocusedMember() {
+      const prev = document.querySelector('.person.focused-by-search');
+      if (prev) {
+        prev.classList.remove('focused-by-search');
+        prev.removeAttribute('tabindex');
+      }
+    }
+    function focusMemberById(memberId, options = {}) {
+      const el = document.querySelector(`[data-id="${memberId}"]`);
+      if (!el) return false;
+      clearFocusedMember();
+      // Ensure element is focusable
+      el.setAttribute('tabindex', '-1');
+      el.classList.add('focused-by-search');
+      if (options.scroll !== false) {
+        centerViewOnNode(memberId);
+      }
+      // Focus after scroll/transform settle
+      setTimeout(() => {
+        try { el.focus({ preventScroll: true }); } catch(_) { el.focus(); }
+        if (srAnnouncer) srAnnouncer.textContent = `Membro selecionado: ${el.querySelector('h3') ? el.querySelector('h3').textContent : memberId}`;
+      }, 160);
+      return true;
+    }
+
+    // Select search result: focus and highlight only; do not open modal
+    function selectSearchResult(index) {
+      const id = lastSearchMatches[index]; if (!id) return;
+      focusSearchMatch(index);
+      const el = document.querySelector(`[data-id="${id}"]`);
+      if (el) {
+        // prevent modal opening caused by residual click or global handlers
+        suppressModalUntil = Date.now() + 300; // 300ms window where modal opening is suppressed
+        highlightSearchResult(el);
+        // focus and center view; don't open modal
+        focusMemberById(id);
+      }
+      clearSearchResults();
+    }
+
+    function highlightSearchResult(el) { clearSearchHighlights(); el.classList.add('search-match'); }
+    function clearSearchHighlights() { document.querySelectorAll('.person.search-match').forEach(e => e.classList.remove('search-match')); }
+    function focusSearchMatch(index) { lastSearchIndex = index; }
+    function focusNextSearch(currentIdx) { const next = Math.min(lastSearchMatches.length - 1, currentIdx + 1); const node = searchResultsEl.children[next]; if (node) node.focus(); }
+    function focusPrevSearch(currentIdx) { const prev = Math.max(0, currentIdx - 1); const node = searchResultsEl.children[prev]; if (node) node.focus(); }
+
+    searchBtn.addEventListener('click', () => { searchPerson(searchInput.value); });
+    searchInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); searchPerson(searchInput.value); } if (e.key === 'Escape') { clearSearchResults(); searchInput.blur(); } if (e.key === 'ArrowDown') { const first = searchResultsEl.querySelector('.search-item'); if (first) first.focus(); } });
+    document.addEventListener('click', (e) => { if (!document.getElementById('searchWrap').contains(e.target)) clearSearchResults(); });
+
+    function limparHoverGlobal() { document.querySelectorAll('.person.hovered').forEach(el => el.classList.remove('hovered')); }
+
+    function construirArvore(){
+      limparHoverGlobal(); computedPositions = {}; treeEl.innerHTML = '';
+
+      function criarNo(id){
+        const m = treeData[id]; if(!m) return;
+        const card = document.createElement('div'); card.className = 'person'; card.dataset.id = id; card.dataset.parent = m.parent || '';
+        const headerHtml = `<h3>${(m.nome||'').replace(/</g,'&lt;')}</h3>
+          <p><strong>Naturalidade:</strong> ${(m.naturalidade||'').replace(/</g,'&lt;')}</p>
+          <p><strong>Matrimónios:</strong> ${(m.matrimonio||'').replace(/</g,'&lt;')}</p>`;
+        card.innerHTML = headerHtml;
+        if (m.obs) { const obsEl = buildObsElement(m.obs, DOCS_BASE_PATH); card.appendChild(obsEl); }
+        if (m.status === 'pending') { const badge = document.createElement('div'); badge.className = 'badge'; badge.innerText = 'Pendente'; card.appendChild(badge); }
+
+        // --- Event wiring robusto (desktop mouse / touch) ---
+        card.addEventListener('pointerenter', (ev) => {
+          ev.currentTarget.classList.add('hovered');
+          showTooltipSimple(card, ev);
+          highlightFamily(card.dataset.id);
+          markDescendants(card.dataset.id, true);
+        });
+        card.addEventListener('pointerleave', (ev) => {
+          ev.currentTarget.classList.remove('hovered');
+          hideTooltip();
+          clearHighlights();
+          markDescendants(null, false);
+          cancelInteractionTimers(card);
+        });
+
+        // click handler: abre modal em cliques normais do rato; em touch continua a usar clickAllowed()
+        card.addEventListener('click', (ev) => {
+          // não interferir com interações em links/inputs dentro do cartão
+          if (ev.target.closest('a') || ev.target.closest('button') || ev.target.closest('input') || ev.target.closest('textarea')) return;
+
+          // se foi uma interação táctil (pointer events marcaram como touch) nós ainda queremos respeitar clickAllowed()
+          if (isTouchEvent(ev)) {
+            if (!clickAllowed()) return;
+          } else {
+            // para rato: apenas previne se estamos em modo de drag
+            if (globalIsDragging) return;
+          }
+
+          // suprimir abertura do modal se a selecção veio da pesquisa recentemente
+          if (Date.now() < suppressModalUntil) return;
+
+          ev.stopPropagation();
+          ev.preventDefault();
+          openModalAnchoredToPublish(card);
+        });
+
+        // pointerdown: start timers ou detectar drag
+        card.addEventListener('pointerdown', (ev) => {
+          ev.stopPropagation();
+          if (ev.pointerType === 'mouse') {
+            card._mouseDown = { x: ev.clientX, y: ev.clientY };
+            return;
+          }
+          if (ev.pointerType === 'touch') {
+            cancelInteractionTimers(card);
+            card._pressTimer = setTimeout(() => {
+              card._pressTimer = null;
+              openModalAnchoredToPublish(card); // long-press opens editor
+            }, 750);
+            card._touchStart = { x: ev.clientX, y: ev.clientY, time: Date.now() };
+          }
+        });
+
+        card.addEventListener('pointermove', (ev) => {
+          if (ev.pointerType === 'mouse' && card._mouseDown) {
+            const dx = Math.abs(ev.clientX - card._mouseDown.x);
+            const dy = Math.abs(ev.clientY - card._mouseDown.y);
+            if (dx > 6 || dy > 6) {
+              globalIsDragging = true;
+              markDragEnd();
+            }
+          }
+          if (ev.pointerType === 'touch' && card._touchStart) {
+            const dx = Math.abs(ev.clientX - card._touchStart.x);
+            const dy = Math.abs(ev.clientY - card._touchStart.y);
+            if (dx > 10 || dy > 10) {
+              cancelInteractionTimers(card);
+              card._touchStart = null;
+              markDragEnd();
+            }
+          }
+        });
+
+        card.addEventListener('pointerup', (ev) => {
+          ev.stopPropagation();
+          if (ev.pointerType === 'mouse') {
+            setTimeout(()=> globalIsDragging = false, 20);
+            card._mouseDown = null;
+            markDragEnd();
+            return;
+          }
+          if (ev.pointerType === 'touch') {
+            if (card._pressTimer === null && card._touchStart == null) {
+              return;
+            }
+            cancelInteractionTimers(card);
+            const now = Date.now();
+            if (now - lastTapTime < 350) {
+              lastTapTime = 0;
+              openModalAnchoredToPublish(card);
+              card._touchStart = null;
+              return;
+            }
+            lastTapTime = now;
+            card.classList.add('hovered');
+            setTimeout(()=> card.classList.remove('hovered'), 300);
+            card._touchStart = null;
+            markDragEnd();
+          }
+        });
+
+        // Ensure links inside obs are clickable and don't trigger card handlers
+        card.querySelectorAll('.obs a').forEach(a => {
+          a.addEventListener('click', (ev) => { ev.stopPropagation(); });
+          a.addEventListener('pointerdown', (ev) => { ev.stopPropagation(); cancelInteractionTimers(card); });
+        });
+
+        // keyboard accessibility
+        card.tabIndex = 0;
+        card.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openModalAnchoredToPublish(card); } });
+
+        card.style.left = '0px'; card.style.top = '0px';
+        treeEl.appendChild(card);
+        (m.filhos || []).forEach(f => criarNo(f));
+      }
+
+      let rootId = 'root';
+      if (!treeData[rootId]) { const anyRoot = Object.values(treeData).find(n => !n.parent); rootId = anyRoot ? anyRoot.id : Object.keys(treeData)[0]; }
+      if (rootId) criarNo(rootId);
+
+      layoutTree(rootId);
+      measureHeights();
+      requestAnimationFrame(drawAllLines);
+    }
+
+    function layoutTree(rootId = 'root') {
+      const nodes = {}; Object.keys(treeData).forEach(id => { nodes[id] = { id, filhos: (treeData[id].filhos || []).slice(), w: NODE_W, h: NODE_H }; const el = document.querySelector(`[data-id="${id}"]`); if (el) nodes[id].h = el.offsetHeight || NODE_H; });
+      function computeSubtreeWidth(id) { const node = nodes[id]; if (!node) return NODE_W; if (!node.filhos || node.filhos.length === 0) { node.subW = node.w; return node.subW; } const childWidths = node.filhos.map(cid => computeSubtreeWidth(cid)); const total = childWidths.reduce((s, w) => s + w, 0) + Math.max(0, (node.filhos.length - 1) * GAP_X); node.subW = Math.max(node.w, total); return node.subW; }
+      if (!treeData[rootId]) { const anyRoot = Object.values(treeData).find(n => !n.parent); rootId = anyRoot ? anyRoot.id : Object.keys(treeData)[0]; }
+      computeSubtreeWidth(rootId);
+      function getDepth(id) { let depth = 0; let cur = treeData[id]; while (cur && cur.parent) { depth++; cur = treeData[cur.parent]; } return depth; }
+      const maxHeightByDepth = {}; Object.keys(nodes).forEach(id => { const d = getDepth(id); maxHeightByDepth[d] = Math.max(maxHeightByDepth[d] || 0, nodes[id].h || NODE_H); });
+      const depthY = {}; let accum = 0; const depths = Object.keys(maxHeightByDepth).map(Number).sort((a,b)=>a-b); depths.forEach(d => { depthY[d] = accum; accum += (maxHeightByDepth[d] || NODE_H) + GAP_Y; });
+      function place(id, x0, depth) { const node = nodes[id]; if (!node) return; const centerX = x0 + node.subW / 2; const left = Math.max(0, Math.round(centerX - node.w / 2)); const top = depthY[depth] != null ? depthY[depth] : depth * (NODE_H + GAP_Y); computedPositions[id] = computedPositions[id] || {}; computedPositions[id].x = left; computedPositions[id].y = top; computedPositions[id].h = node.h; if (node.filhos && node.filhos.length) { let cursor = x0; node.filhos.forEach(cid => { const cw = nodes[cid].subW || NODE_W; place(cid, cursor, depth + 1); cursor += cw + GAP_X; }); } }
+      place(rootId, 0, 0);
+      Object.keys(computedPositions).forEach(id => { const pos = computedPositions[id]; const el = document.querySelector(`[data-id="${id}"]`); if (!el) return; el.style.left = `${pos.x}px`; el.style.top = `${pos.y}px`; });
+      const all = Object.values(computedPositions);
+      if (all.length) { const maxX = Math.max(...all.map(v => v.x + NODE_W)); const maxY = Math.max(...all.map(v => v.y + (v.h || NODE_H))); inner.style.width = (maxX + 80) + 'px'; inner.style.height = (maxY + 80) + 'px'; } else { inner.style.width = '800px'; inner.style.height = '400px'; }
+    }
+
+    function measureHeights(){ Object.keys(treeData).forEach(id => { const el = document.querySelector(`[data-id="${id}"]`); if (!el) return; computedPositions[id] = computedPositions[id] || {}; computedPositions[id].h = el.offsetHeight; }); setTimeout(()=> { layoutTree('root'); requestAnimationFrame(drawAllLines); }, 0); }
+
+    function showTooltipSimple(el, e){ const tip = document.getElementById('tooltip'); tip.textContent = 'Criar / Editar'; tip.style.display = 'block'; moveTooltip(e); }
+    function moveTooltip(e){ const tip = document.getElementById('tooltip'); const areaRect = area.getBoundingClientRect(); const x = e.clientX - areaRect.left; const y = e.clientY - areaRect.top; const maxLeft = area.clientWidth - tip.offsetWidth - 6; const maxTop  = area.clientHeight - tip.offsetHeight - 6; const left = Math.max(6, Math.min(x + 12, maxLeft)); const top  = Math.max(6, Math.min(y - 18, maxTop)); tip.style.left = `${left}px`; tip.style.top = `${top}px`; }
+    function hideTooltip(){ const tip = document.getElementById('tooltip'); tip.style.display = 'none'; tip.textContent = ''; }
+
+    // create curved path with adaptive curvature and subtle stroke
+    function createCurvePath(x1,y1,x2,y2){
+      const dx = Math.abs(x2 - x1);
+      const base = Math.max(40, Math.min(120, dx / 2));
+      const cx1 = x1 + (x2 > x1 ? base : -base);
+      const cx2 = x2 - (x2 > x1 ? base : -base);
+      const d = `M ${x1},${y1} C ${cx1},${y1} ${cx2},${y2} ${x2},${y2}`;
+      const path = document.createElementNS('http://www.w3.org/2000/svg','path');
+      path.setAttribute('d', d);
+      path.setAttribute('stroke', 'rgba(0,115,255,0.75)');
+      path.setAttribute('stroke-width', '1.6');
+      path.setAttribute('fill', 'none');
+      path.setAttribute('stroke-linecap','round');
+      return path;
+    }
+
+    // draw lines and optional generation separators
+    function drawAllLines(){
+      const logicalW = Math.max(inner.scrollWidth, inner.offsetWidth);
+      const logicalH = Math.max(inner.scrollHeight, inner.offsetHeight);
+      svg.setAttribute('width', logicalW);
+      svg.setAttribute('height', logicalH);
+      svg.style.width = logicalW + 'px';
+      svg.style.height = logicalH + 'px';
+      svg.innerHTML = '';
+
+      // optional: draw subtle horizontal separators per depth
+      const depthsY = {};
+      Object.values(computedPositions).forEach(p => {
+        if (!p) return;
+        depthsY[p.y] = true;
+      });
+      Object.keys(depthsY).forEach(topStr => {
+        const y = Number(topStr) - 6;
+        const line = document.createElementNS('http://www.w3.org/2000/svg','rect');
+        line.setAttribute('x', 0);
+        line.setAttribute('y', y);
+        line.setAttribute('width', logicalW);
+        line.setAttribute('height', 1);
+        line.setAttribute('fill', 'rgba(15,23,42,0.03)');
+        svg.appendChild(line);
+      });
+
+      Object.values(treeData).forEach(member => {
+        if(!member.parent) return;
+        const parentId = member.parent; const childId = member.id; const pPos = computedPositions[parentId]; const cPos = computedPositions[childId];
+        if (pPos && cPos) {
+          const hParent = pPos.h || NODE_H;
+          const x1 = pPos.x + NODE_W/2;
+          const y1 = pPos.y + hParent;
+          const x2 = cPos.x + NODE_W/2;
+          const y2 = cPos.y;
+          const path = createCurvePath(x1, y1, x2, y2);
+          svg.appendChild(path);
+          return;
+        }
+        const pEl = document.querySelector(`[data-id="${parentId}"]`); const cEl = document.querySelector(`[data-id="${childId}"]`); if(!pEl || !cEl) return;
+        const areaRect = area.getBoundingClientRect(); const pRect = pEl.getBoundingClientRect(); const cRect = cEl.getBoundingClientRect();
+        const px = (pRect.left - areaRect.left - state.tx) / state.scale; const py = (pRect.top - areaRect.top - state.ty) / state.scale;
+        const cx = (cRect.left - areaRect.left - state.tx) / state.scale; const cy = (cRect.top - areaRect.top - state.ty) / state.scale;
+        const x1 = px + pRect.width / (2 * state.scale); const y1 = py + pRect.height / (2 * state.scale); const x2 = cx + 0; const y2 = cy + cRect.height / (2 * state.scale);
+        const pad = 6; const path = createCurvePath(x1 - pad, y1, x2 + pad, y2); svg.appendChild(path);
+      });
+    }
+
+    // Open modal: ensure centered and visible; lock body scroll; attach approve button behavior to current selectedPerson
+    function openModalAnchoredToPublish(card){
+      selectedPerson = card;
+      const id = card.dataset.id; const data = treeData[id] || {};
+      document.getElementById('nome').value = data.nome || ''; document.getElementById('nat').value = data.naturalidade || ''; document.getElementById('matr').value = data.matrimonio || ''; document.getElementById('obs').value = data.obs || '';
+      overlay.style.display = 'block';
+      document.body.classList.add('modal-open');
+      modal.style.display = 'block';
+      modal.style.visibility = 'visible';
+      modal.style.left = ''; modal.style.top = ''; modal.style.transform = '';
+      if (window.innerWidth > 820) {
+        modal.style.left = '50%'; modal.style.top = '50%'; modal.style.transform = 'translate(-50%,-50%)';
+      } else {
+        modal.style.left = '0'; modal.style.top = '0'; modal.style.transform = 'none';
+        modal.scrollTop = 0;
+      }
+      setTimeout(()=>document.getElementById('nome').focus(), 40);
+      updateApproveButtonState(id);
+    }
+
+    function closeModal(){
+      overlay.style.display = 'none';
+      document.body.classList.remove('modal-open');
+      modal.style.display = 'none';
+      modal.style.visibility = 'hidden';
+      selectedPerson = null;
+    }
+
+    document.getElementById('closeBtn').addEventListener('click', closeModal);
+    overlay.addEventListener('click', closeModal);
+
+    // Save button now publishes the whole tree and closes modal
+    document.getElementById('saveBtn').addEventListener('click', async () => {
+      if (!selectedPerson) return;
+      const id = selectedPerson.dataset.id;
+      treeData[id].nome = document.getElementById('nome').value;
+      treeData[id].naturalidade = document.getElementById('nat').value;
+      treeData[id].matrimonio = document.getElementById('matr').value;
+      treeData[id].obs = document.getElementById('obs').value;
+
+      const card = selectedPerson;
+      if (card) {
+        const h = card.querySelector('h3'); if (h) h.innerText = treeData[id].nome;
+        const ps = card.querySelectorAll('p'); if (ps[0]) ps[0].innerHTML = `<strong>Naturalidade:</strong> ${treeData[id].naturalidade || ''}`; if (ps[1]) ps[1].innerHTML = `<strong>Matrimónios:</strong> ${treeData[id].matrimonio || ''}`;
+        const existingObs = card.querySelector('.obs');
+        if (existingObs) {
+          const newObs = buildObsElement(treeData[id].obs || '', DOCS_BASE_PATH);
+          card.replaceChild(newObs, existingObs);
+        } else if (treeData[id].obs) {
+          const newObs = buildObsElement(treeData[id].obs || '', DOCS_BASE_PATH);
+          card.appendChild(newObs);
+        }
+      }
+
+      try {
+        const res = await fetch('/api/publicar-arvore.php', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(treeData)
+        });
+        const j = await res.json();
+        if (!res.ok || j.status !== 'ok') throw new Error(j.error || 'Erro ao publicar');
+        await carregarArvoreValidada();
+        closeModal();
+        alert('Alterações guardadas e publicadas com sucesso.');
+      } catch (err) {
+        alert('Erro ao publicar: ' + (err.message || err));
+      }
+    });
+
+    // Approve individual member (Validar)
+    async function approveMember(id) {
+      try {
+        const password = prompt('Introduz a password do administrador para validar este membro:');
+        if (password === null) return;
+        const res = await fetch('/api/aprovar-membro.php', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ id, password }) });
+        const j = await res.json();
+        if (!res.ok || j.status !== 'ok') throw new Error(j.error || 'Erro ao validar membro');
+        if (treeData[id]) {
+          treeData[id].status = 'approved';
+          const card = document.querySelector(`[data-id="${id}"]`);
+          if (card) {
+            const badge = card.querySelector('.badge'); if (badge) badge.remove();
+          }
+        }
+        updateApproveButtonState(id);
+        alert('Membro validado.');
+      } catch (err) {
+        alert('Erro: ' + (err.message || 'não foi possível validar'));
+      }
+    }
+
+    approveMemberBtn.addEventListener('click', () => {
+      if (!selectedPerson) return;
+      const id = selectedPerson.dataset.id;
+      approveMember(id);
+    });
+
+    function updateApproveButtonState(id) {
+      if (!id || !treeData[id]) { approveMemberBtn.disabled = true; return; }
+      approveMemberBtn.disabled = treeData[id].status === 'approved';
+      approveMemberBtn.textContent = treeData[id].status === 'approved' ? 'Aprovado' : 'Validar';
+    }
+
+    document.getElementById('addChildBtn').addEventListener('click', () => {
+      if(!selectedPerson) return;
+      const parentId = selectedPerson.dataset.id;
+      const newId = 'id'+Math.random().toString(36).slice(2,10);
+      treeData[newId] = { id:newId, nome:'Novo Filho', naturalidade:'', matrimonio:'', obs:'', parent:parentId, filhos:[] };
+      treeData[parentId].filhos = treeData[parentId].filhos || [];
+      treeData[parentId].filhos.push(newId);
+      construirArvore(); applyTransform(); closeModal();
+    });
+
+    document.getElementById('delBtn').addEventListener('click', () => {
+      if(!selectedPerson) return;
+      const id = selectedPerson.dataset.id; if(id==='root'){ alert('Não é possível apagar a raiz.'); return; }
+      const p = treeData[id].parent; if(p && treeData[p]) treeData[p].filhos = (treeData[p].filhos||[]).filter(x=>x!==id);
+      delete treeData[id]; construirArvore(); applyTransform(); closeModal();
+    });
+
+    function highlightFamily(id){ if(!treeData[id]) return; const relatives = new Set(); relatives.add(id); (treeData[id].filhos || []).forEach(f=>relatives.add(f)); if(treeData[id].parent) relatives.add(treeData[id].parent); document.querySelectorAll('.person').forEach(el=> el.classList.toggle('highlight', relatives.has(el.dataset.id))); }
+    function clearHighlights(){ document.querySelectorAll('.person.highlight').forEach(el=>el.classList.remove('highlight')); }
+
+    function getDescendants(id, out = new Set()){ if(!id || !treeData[id]) return out; (treeData[id].filhos || []).forEach(childId=>{ if(!out.has(childId)){ out.add(childId); getDescendants(childId, out); } }); return out; }
+    function markDescendants(rootId, enable){ if(!enable){ document.querySelectorAll('.person.descendant').forEach(el=>el.classList.remove('descendant')); return; } const desc = getDescendants(rootId); document.querySelectorAll('.person').forEach(el=> el.classList.toggle('descendant', desc.has(el.dataset.id))); }
+
+    // Global safety: ensure pointerup always marks drag end and add delegated click handler
+    document.addEventListener('pointerup', (e) => {
+      try { markDragEnd(); } catch(_) {}
+      setTimeout(() => { globalIsDragging = false; }, 40);
+    }, true);
+
+    // Delegated click handler para abertura de modal (mais robusto que listeners por nó)
+    document.addEventListener('click', function (ev) {
+      // não interferir com elementos interactivos
+      if (ev.target.closest('a') || ev.target.closest('button') || ev.target.closest('input') || ev.target.closest('textarea')) return;
+
+      const card = ev.target.closest && ev.target.closest('.person');
+      if (!card) return;
+
+      // suprimir abertura se veio da pesquisa recentemente
+      if (Date.now() < (suppressModalUntil || 0)) return;
+
+      // se detectámos um drag real, bloquemos o click
+      if (globalIsDragging) return;
+
+      // Para interações tácteis, respeitar clickAllowed; para rato, permitir se não houver drag
+      const isTouch = ev.pointerType === 'touch' || ev.type === 'touchend' || ('ontouchstart' in window && ev.pointerType === undefined && ev.screenX !== 0);
+      if (isTouch && !clickAllowed()) return;
+
+      ev.preventDefault();
+      ev.stopPropagation();
+      try { openModalAnchoredToPublish(card); } catch (err) { console.error('Erro ao abrir modal (delegado):', err); }
+    }, true);
+
+    // limpar flags ao trocar visibilidade — evita estados presos após longos períodos inativos
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden) {
+        globalIsDragging = false;
+        markDragEnd();
+        suppressModalUntil = 0;
+      }
+    });
+
+    // ao receber qualquer pointerdown global, limpar indicadores antigos
+    document.addEventListener('pointerdown', () => {
+      globalIsDragging = false;
+      markDragEnd();
+    }, { capture: true });
+
+    // -----------------------------
+    // Admin button & menu behavior
+    // -----------------------------
+    function openAdminMenuWithPassword(pwd) {
+      adminPassword = pwd || null;
+      // if no password provided, don't open
+      if (!adminPassword) return;
+      // show admin modal
+      overlay.style.display = 'block';
+      document.body.classList.add('modal-open');
+      adminModal.style.display = 'block';
+      adminModal.style.visibility = 'visible';
+      // center admin modal
+      if (window.innerWidth > 820) {
+        adminModal.style.left = '50%'; adminModal.style.top = '50%'; adminModal.style.transform = 'translate(-50%,-50%)';
+      } else {
+        adminModal.style.left = '0'; adminModal.style.top = '0'; adminModal.style.transform = 'none';
+      }
+    }
+
+    function closeAdminMenu() {
+      adminPassword = null; // clear password from JS memory on close for safety
+      overlay.style.display = 'none';
+      document.body.classList.remove('modal-open');
+      adminModal.style.display = 'none';
+      adminModal.style.visibility = 'hidden';
+    }
+
+    adminBtn.addEventListener('click', () => {
+      // Prompt for password once, then open menu
+      const pwd = prompt('Introduz a password do administrador:');
+      if (pwd === null || pwd === '') return;
+      // keep the password only in-memory for next admin actions
+      openAdminMenuWithPassword(pwd);
+    });
+
+    adminCloseBtn.addEventListener('click', () => {
+      closeAdminMenu();
+    });
+
+    // Approve all using stored adminPassword
+    adminApproveAllBtn.addEventListener('click', async () => {
+      if (!adminPassword) {
+        alert('Password não encontrada. Reabre o menu Admin e introduz a password.');
+        return;
+      }
+      try {
+        // reuse existing endpoint /api/aprovar-pendentes.php
+        const res = await fetch('/api/aprovar-pendentes.php', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ ids:null, password: adminPassword }) });
+        const j = await res.json();
+        if (!res.ok) {
+          if (j && j.error === 'invalid_password') throw new Error('Password inválida');
+          throw new Error(j.error || 'Erro ao aprovar');
+        }
+        await carregarArvoreValidada();
+        alert('Todos os pendentes foram aprovados.');
+      } catch (err) {
+        alert('Erro: ' + (err.message || err));
+      } finally {
+        // opcional: fechar menu e limpar password
+        closeAdminMenu();
+      }
+    });
+
+    // Visitas button: abrir /admin/visitas.php numa nova aba (passar a password por GET não é seguro; abrimos apenas a página)
+// Substitui o handler actual de adminVisitasBtn por isto:
+adminVisitasBtn.addEventListener('click', () => {
+  if (!adminPassword) {
+    alert('Password não encontrada. Reabre o menu Admin e introduz a password.');
+    return;
+  }
+
+  // Cria form POST direcionado para uma nova aba
+  const form = document.createElement('form');
+  form.method = 'POST';
+  form.action = '/admin/visitas.php';
+  form.target = '_blank';
+  form.style.display = 'none';
+
+  // Campo com a password (nome do campo: password). Ajusta o nome se o servidor usar outro.
+  const inputPwd = document.createElement('input');
+  inputPwd.type = 'hidden';
+  inputPwd.name = 'password';
+  inputPwd.value = adminPassword;
+  form.appendChild(inputPwd);
+
+  // Se precisares de outro parâmetro (ex.: token, timestamp), adiciona aqui
+
+  document.body.appendChild(form);
+  form.submit();
+
+  // limpeza do DOM; mantemos adminPassword em memória (não a apagamos automaticamente)
+  form.remove();
+  closeAdminMenu();
+});
+
+
+    overlay.addEventListener('click', () => {
+      // fechar qualquer modal aberto (editor ou admin)
+      if (adminModal.style.display === 'block') closeAdminMenu();
+      else closeModal();
+    });
+
+    // Load and setup
+    async function carregarArvoreValidada() {
+      try {
+        const res = await fetch('/dados-arvore/oficial/arvore-validada.json', { cache:'no-store' });
+        if (!res.ok) throw new Error('Ficheiro não encontrado');
+        treeData = await res.json();
+        construirArvore();
+        state.scale = 1; state.tx = 0; state.ty = 0;
+        setTimeout(() => {
+          const rootId = (treeData['root'] ? 'root' : (Object.values(treeData).find(n => !n.parent) || Object.keys(treeData)[0]));
+          if (rootId) centerViewOnNode(rootId);
+          setTimeout(() => { autoFitForSmallScreens(); setSvgVisibilityForDevice(); }, 80);
+        }, 80);
+      } catch (e) { console.warn('Erro ao carregar árvore:', e.message); }
+    }
+
+    function autoFitForSmallScreens() { const vw = area.clientWidth; const contentW = Math.max(inner.scrollWidth, inner.offsetWidth); if (vw < 820 && contentW > 0) { const targetScale = Math.max(state.minScale, Math.min(1, (vw - 80) / contentW)); state.scale = targetScale; state.tx = Math.round((vw - contentW * state.scale) / 2); state.ty = 20; clampTranslate(); applyTransform(); } }
+
+    function setSvgVisibilityForDevice() { if (window.innerWidth < 520) { svg.style.opacity = '0.65'; } else { svg.style.opacity = '1'; svg.style.display = 'block'; } }
+
+    window.addEventListener('resize', () => { layoutTree(); measureHeights(); setTimeout(autoFitForSmallScreens, 30); requestAnimationFrame(drawAllLines); setSvgVisibilityForDevice(); });
+    const observer = new MutationObserver(() => { layoutTree(); measureHeights(); requestAnimationFrame(drawAllLines); });
+    observer.observe(treeEl, { childList:true, subtree:true, attributes:true });
+
+    // Approvar Todos legacy handler removed; replaced by admin flow above
+																																																														
+																																																																																																																																																																																																																																					   
+	   
+
+    window.addEventListener('load', () => { carregarArvoreValidada(); setSvgVisibilityForDevice(); });
+      
+ (function(){
+  try {
+    // envia um ping discreto ao servidor; não bloqueia navegação
+    var url = '/api/log-visit.php';
+    var payload = JSON.stringify({ path: location.pathname });
+    if (navigator.sendBeacon) {
+      var blob = new Blob([payload], { type: 'application/json' });
+      navigator.sendBeacon(url, blob);
+    } else {
+      // fallback leve (não bloqueante)
+      fetch(url, { method: 'POST', body: payload, credentials: 'include', keepalive: true }).catch(()=>{});
+    }
+  } catch (e) { /* silencioso */ }
+})();
+      
+  </script>
+        <p><?php include 'counter.php'; ?></p>
+</body>
+</html>
