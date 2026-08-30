@@ -12,8 +12,7 @@
         input[type="text"], input[type="email"], textarea { width: 100%; padding: 10px; margin-bottom: 15px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
         input[type="submit"] { width: 100%; background-color: #5cb85c; color: white; padding: 14px 20px; margin-top: 10px; border: none; border-radius: 4px; cursor: pointer; font-size: 16px; }
         input[type="submit"]:hover { background-color: #4cae4c; }
-        .success { color: green; text-align: center; }
-        .error { color: red; text-align: center; }
+        #mensagem-status { text-align: center; font-weight: bold; margin-top: 15px; }
     </style>
 </head>
 <body>
@@ -21,7 +20,8 @@
 <div class="container">
     <h2>Entre em Contato</h2>
     
-    <form action="contact.php" method="POST">
+    <!-- O action e method foram removidos; adicionámos um ID para o JavaScript controlar -->
+    <form id="formulario-contacto">
         <label for="name">Nome:</label>
         <input type="text" id="name" name="name" required>
 
@@ -34,9 +34,53 @@
         <label for="message">Mensagem:</label>
         <textarea id="message" name="message" rows="5" required></textarea>
 
+        <!-- Campo Honeypot para apanhar bots (invisível) -->
+        <input type="text" name="campo_falso" style="display:none !important" tabindex="-1" autocomplete="off">
+
         <input type="submit" value="Enviar Mensagem">
     </form>
+    
+    <!-- Local onde a mensagem de sucesso ou erro vai aparecer -->
+    <p id="mensagem-status"></p>
 </div>
+
+<!-- Script para enviar dados ao Cloudflare Pages -->
+<script>
+document.getElementById('formulario-contacto').addEventListener('submit', async function(evento) {
+    evento.preventDefault(); 
+    
+    const statusAviso = document.getElementById('mensagem-status');
+    const botaoSubmit = this.querySelector('input[type="submit"]');
+    
+    statusAviso.innerText = "A enviar...";
+    statusAviso.style.color = "#333";
+    botaoSubmit.disabled = true;
+    
+    const formData = new FormData(this);
+    
+    try {
+        const resposta = await fetch('/api/contact', {
+            method: 'POST',
+            body: formData
+        });
+        
+        if (resposta.ok) {
+            statusAviso.innerText = "Mensagem enviada com sucesso!";
+            statusAviso.style.color = "green";
+            this.reset(); 
+        } else {
+            const erroTexto = await resposta.text();
+            statusAviso.innerText = erroTexto || "Erro ao enviar a mensagem.";
+            statusAviso.style.color = "red";
+        }
+    } catch (erro) {
+        statusAviso.innerText = "Erro de rede. Verifique a sua ligação.";
+        statusAviso.style.color = "red";
+    } finally {
+        botaoSubmit.disabled = false;
+    }
+});
+</script>
 
 </body>
 </html>
