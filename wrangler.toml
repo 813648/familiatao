@@ -1,0 +1,7 @@
+name = "arvore-familia"
+compatibility_date = "2026-03-05"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "arvore-familia-db"
+database_id = "0bb09012-722d-4962-8e8e-62cfe8a8fe47"
