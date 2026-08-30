@@ -1,0 +1,75 @@
+Visita 176173572167-d7b176 - 2025-10-29 11:02:01 - IP: 188.251.49.244
+Visita 176173573142-60b022 - 2025-10-29 11:02:11 - IP: 188.251.49.244
+Visita 176173573579-82b455 - 2025-10-29 11:02:15 - IP: 188.251.49.244
+Visita 176173591574-8f265b - 2025-10-29 11:05:15 - IP: 188.251.49.244
+Visita 1 - 2025-10-29 11:21:13 - IP: 188.251.49.244
+Visita 2 - 2025-10-29 11:21:14 - IP: 188.251.49.244
+Visita 3 - 2025-10-29 11:29:27 - IP: 188.251.49.244
+Visita 4 - 2025-10-29 11:32:40 - IP: 188.251.49.244
+Visita 5 - 2025-10-29 11:44:34 - IP: 188.251.49.244
+Visita 6 - 2025-10-29 11:45:45 - IP: 89.214.155.123
+Visita 7 - 2025-10-29 11:46:39 - IP: 89.214.155.123
+Visita 8 - 2025-10-29 11:57:01 - IP: 188.251.49.244 - Local: Marinha Grande, Portugal
+Visita 9 - 2025-10-29 11:57:22 - IP: 89.214.155.123 - Local: Coimbra, Portugal
+Visita 10 - 2025-10-29 11:57:37 - IP: 89.214.155.123 - Local: Coimbra, Portugal
+Visita 11 - 2025-10-29 13:01:40 - IP: 188.251.49.244 - Local: Marinha Grande, Portugal
+Visita 12 - 2025-10-29 13:02:44 - IP: 188.251.49.244 - Local: Marinha Grande, Portugal
+Visita 13 - 2025-10-29 13:03:08 - IP: 148.69.24.102 - Local: unknown
+Visita 14 - 2025-10-29 13:18:15 - IP: 188.251.49.244 - Local: Marinha Grande, Portugal
+Visita 15 - 2025-10-29 13:21:58 - IP: 188.251.49.244 - Local: Marinha Grande, Portugal
+Visita 16 - 2025-10-29 13:22:01 - IP: 188.251.49.244 - Local: Marinha Grande, Portugal
+Visita 17 - 2025-10-29 13:22:31 - IP: 188.251.49.244 - Local: Marinha Grande, Portugal
+Visita 18 - 2025-10-29 13:25:19 - IP: 188.251.49.244 - Local: Marinha Grande, Portugal
+Visita 19 - 2025-10-29 15:03:23 - IP: 188.251.49.244 - Local: Marinha Grande, Portugal
+Visita 20 - 2025-10-29 15:06:54 - IP: 188.251.49.244 - Local: Marinha Grande, Portugal
+Visita 21 - 2025-10-29 15:38:07 - IP: 188.251.49.244 - Local: Marinha Grande, Portugal
+Visita 22 - 2025-10-29 15:49:39 - IP: 188.251.49.244 - Local: Marinha Grande, Portugal
+Visita 23 - 2025-10-29 15:51:52 - IP: 188.251.49.244 - Local: Marinha Grande, Portugal
+Visita 24 - 2025-10-29 16:10:34 - IP: 188.251.49.244 - Local: Marinha Grande, Portugal
+Visita 25 - 2025-10-29 16:27:17 - IP: 188.251.49.244 - Local: Marinha Grande, Portugal
+Visita 26 - 2025-10-29 16:28:14 - IP: 46.50.1.129 - Local: Azoia, Portugal
+Visita 27 - 2025-10-29 16:29:39 - IP: 188.251.49.244 - Local: Marinha Grande, Portugal
+Visita 28 - 2025-10-29 16:31:57 - IP: 2.82.168.16 - Local: Aveiro, Portugal
+Visita 29 - 2025-10-29 16:39:43 - IP: 188.251.49.244 - Local: Marinha Grande, Portugal
+Visita 30 - 2025-10-29 17:04:10 - IP: 188.251.49.244 - Local: Marinha Grande, Portugal
+Visita 31 - 2025-10-29 17:18:29 - IP: 95.93.90.149 - Local: Oeiras, Portugal
+Visita 32 - 2025-10-29 17:58:57 - IP: 188.251.49.244 - Local: Marinha Grande, Portugal
+Visita 33 - 2025-10-29 17:59:06 - IP: 188.251.49.244 - Local: Marinha Grande, Portugal
+Visita 34 - 2025-10-29 19:09:56 - IP: 37.28.235.81 - Local: Lisbon, Portugal
+Visita 35 - 2025-10-29 19:24:19 - IP: 188.251.49.244 - Local: Marinha Grande, Portugal
+Visita 36 - 2025-10-29 19:25:21 - IP: 188.251.49.244 - Local: Marinha Grande, Portugal
+Visita 37 - 2025-10-29 22:45:18 - IP: 188.251.49.244 - Local: Marinha Grande, Portugal
+Visita 38 - 2025-10-30 07:03:27 - IP: 188.251.49.244 - Local: Marinha Grande, Portugal
+Visita 39 - 2025-10-30 23:14:45 - IP: 188.251.49.244 - Local: Marinha Grande, Portugal
+Visita 40 - 2025-10-31 18:50:05 - IP: 188.251.49.244 - Local: Marinha Grande, Portugal
+Visita 41 - 2025-11-01 16:14:47 - IP: 188.251.49.244 - Local: Marinha Grande, Portugal
+Visita 42 - 2025-11-02 19:02:05 - IP: 188.251.49.244 - Local: Marinha Grande, Portugal
+Visita 43 - 2025-11-03 18:52:33 - IP: 87.103.74.216 - Local: Lisbon, Portugal
+Visita 44 - 2025-11-04 21:33:51 - IP: 37.28.235.81 - Local: Lisbon, Portugal
+Visita 45 - 2025-11-07 17:14:07 - IP: 176.79.211.72 - Local: Aveiro, Portugal
+Visita 46 - 2025-11-07 17:14:58 - IP: 176.79.211.72 - Local: Aveiro, Portugal
+Visita 47 - 2025-11-07 17:15:43 - IP: 176.79.211.72 - Local: Aveiro, Portugal
+Visita 48 - 2025-11-07 17:16:02 - IP: 176.79.211.72 - Local: Aveiro, Portugal
+Visita 49 - 2025-11-07 17:16:39 - IP: 176.79.211.72 - Local: Aveiro, Portugal
+Visita 50 - 2025-11-07 17:17:18 - IP: 176.79.211.72 - Local: Aveiro, Portugal
+Visita 51 - 2025-11-07 17:17:32 - IP: 176.79.211.72 - Local: Aveiro, Portugal
+Visita 52 - 2025-11-11 13:54:38 - IP: 87.103.68.169 - Local: Lisbon, Portugal
+Visita 53 - 2025-11-14 23:11:57 - IP: 188.251.49.244 - Local: Marinha Grande, Portugal
+Visita 54 - 2025-11-16 17:30:45 - IP: 176.79.211.72 - Local: Aveiro, Portugal
+Visita 55 - 2025-11-23 21:39:56 - IP: 188.251.49.244 - Local: Marinha Grande, Portugal
+Visita 56 - 2025-12-02 00:28:54 - IP: 188.251.49.244 - Local: Marinha Grande, Portugal
+Visita 57 - 2025-12-08 19:37:45 - IP: 188.251.49.244 - Local: Marinha Grande, Portugal
+Visita 58 - 2025-12-22 20:25:14 - IP: 188.251.49.244 - Local: Marinha Grande, Portugal
+Visita 59 - 2026-01-26 10:16:29 - IP: 87.103.66.143 - Local: Lourinhã, Portugal
+Visita 60 - 2026-01-26 10:27:40 - IP: 87.103.66.143 - Local: Lourinhã, Portugal
+Visita 61 - 2026-03-05 20:49:35 - IP: 2.83.101.241 - Local: Entroncamento, Portugal
+Visita 62 - 2026-04-29 11:06:15 - IP: 188.81.155.194 - Local: Marinha Grande, Portugal
+Visita 63 - 2026-07-27 21:30:52 - IP: 188.81.155.194 - Local: Nelas, Portugal
+Visita 64 - 2026-07-27 21:31:59 - IP: 188.81.155.194 - Local: Nelas, Portugal
+Visita 65 - 2026-07-27 21:32:16 - IP: 188.81.155.194 - Local: Nelas, Portugal
+Visita 66 - 2026-08-11 20:57:09 - IP: 2.83.198.247 - Local: Marinha Grande, Portugal
+Visita 67 - 2026-08-11 22:05:16 - IP: 2.83.198.247 - Local: Marinha Grande, Portugal
+Visita 68 - 2026-08-11 22:10:36 - IP: 2.83.198.247 - Local: Marinha Grande, Portugal
+Visita 69 - 2026-08-11 23:08:12 - IP: 2.83.198.247 - Local: Marinha Grande, Portugal
+Visita 70 - 2026-08-11 23:08:18 - IP: 212.113.167.166 - Local: Lisbon, Portugal
+Visita 71 - 2026-08-11 23:10:56 - IP: 2.83.198.247 - Local: Marinha Grande, Portugal
