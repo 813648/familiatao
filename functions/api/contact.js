@@ -1,28 +1,30 @@
 export async function onRequestPost(context) {
-  // O 'context.env' acede às variáveis ocultas configuradas na Cloudflare
   const { request, env } = context;
   
   try {
     const formData = await request.formData();
-    const nome = formData.get('nome');
+    
+    // Captura os dados exatos definidos no atributo 'name' do HTML
+    const nome = formData.get('name');
     const email = formData.get('email');
-    const mensagem = formData.get('mensagem');
+    const assunto = formData.get('subject');
+    const mensagem = formData.get('message');
     const honeypot = formData.get('campo_falso');
 
-    // 1. Armadilha Anti-Spam (Honeypot)
+    // 1. Armadilha Anti-Spam
     if (honeypot) {
       return new Response("Envio bloqueado por suspeita de spam.", { status: 400 });
     }
 
-    // 2. Validação básica
-    if (!nome || !email || !mensagem) {
+    // 2. Validação de campos obrigatórios
+    if (!nome || !email || !assunto || !mensagem) {
       return new Response("Preencha todos os campos obrigatórios.", { status: 400 });
     }
 
-    // 3. Formatação da mensagem para o Telegram
-    const textoTelegram = `🔔 <b>Nova Mensagem do Site</b>\n\n👤 <b>Nome:</b> ${nome}\n📧 <b>Email:</b> ${email}\n💬 <b>Mensagem:</b>\n${mensagem}`;
+    // 3. Estruturação da mensagem com o Assunto incluído
+    const textoTelegram = `🔔 <b>Nova Mensagem: Família Tão</b>\n\n👤 <b>Nome:</b> ${nome}\n📧 <b>Email:</b> ${email}\n📌 <b>Assunto:</b> ${assunto}\n💬 <b>Mensagem:</b>\n${mensagem}`;
     
-    // 4. Envio para a API do Telegram usando as Variáveis de Ambiente
+    // 4. Chamada à API do Telegram
     const telegramUrl = `https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`;
     
     const respostaTelegram = await fetch(telegramUrl, {
