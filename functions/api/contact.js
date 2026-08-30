@@ -40,8 +40,7 @@ export async function onRequestPost(context) {
 if (respostaTelegram.ok) {
       return new Response("Mensagem enviada com sucesso!", { status: 200 });
     } else {
-      const erroDetalhe = await respostaTelegram.text();
-      return new Response("Erro do Telegram: " + erroDetalhe, { status: 500 });
+      return new Response("Erro de comunicação com o Telegram.", { status: 500 });
     }
 
   } catch (erro) {
