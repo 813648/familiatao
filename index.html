@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <!-- Árvore Genealógica Família Tão
-     Versão: v1.2.6-d2
-     Alterações: Submissão segura de visitas por POST (sem expor a password no URL) e correção do fecho do menu Admin.
+     Versão: v1.2.5-d2
+     Alterações: Corrigido o erro de sintaxe (&), robustez na autenticação de Admin e validação de membros corrigida.
 -->
 <html lang="pt">
 <head>
@@ -171,6 +171,27 @@
     const GAP_X = 56;
     const GAP_Y = 60;
     const DOCS_BASE_PATH = '/docs/';
+
+    function renderObsWithDocs(obsText, docsBase) {
+      if (!obsText) return '';
+      docsBase = (docsBase || '').replace(/\/+$/, '') + '/';
+      const escapeHtml = s => String(s)
+        .replace(/&/g,'&amp;')
+        .replace(/</g,'&lt;')
+        .replace(/>/g,'&gt;')
+        .replace(/"/g,'&quot;');
+
+      obsText = String(obsText).replace(/\[\[br\]\]/gi, '\n');
+      const escaped = escapeHtml(obsText).replace(/\n/g, '<br>');
+
+      return escaped.replace(/\[\[(.*?)\]\]/g, function(_, name) {
+        const safeName = String(name || '').trim();
+        if (!/^[\w\-\.\s\/]+$/.test(safeName)) return escapeHtml('[[' + safeName + ']]');
+        const url = docsBase + encodeURIComponent(safeName).replace(/%2F/g, '/');
+        const label = escapeHtml(safeName);
+        return `<a href="${url}" target="_blank" rel="noopener noreferrer" class="doc-link">${label}</a>`;
+      });
+    }
 
     function buildObsElement(obsText, docsBase) {
       const container = document.createElement('div');
@@ -411,7 +432,7 @@
         const m = treeData[id]; if(!m) return;
         const card = document.createElement('div'); card.className = 'person'; card.dataset.id = id; card.dataset.parent = m.parent || '';
         const headerHtml = `<h3>${(m.nome||'').replace(/</g,'&lt;')}</h3>
-          <p><strong>Naturalidade:</strong> ${(m.naturalidade||'').replace(/</g,&apos;&lt;&apos;)}</p>
+          <p><strong>Naturalidade:</strong> ${(m.naturalidade||'').replace(/</g,'&lt;')}</p>
           <p><strong>Matrimónios:</strong> ${(m.matrimonio||'').replace(/</g,'&lt;')}</p>`;
         card.innerHTML = headerHtml;
         if (m.obs) { const obsEl = buildObsElement(m.obs, DOCS_BASE_PATH); card.appendChild(obsEl); }
@@ -690,6 +711,7 @@
       }
     });
 
+    // Funções de Gestão de Sessão Administrativa Atualizadas
     function isAdminLoggedIn() {
       return sessionStorage.getItem("admin_logged") === "true";
     }
@@ -713,7 +735,7 @@
           if (pwd === null || pwd === '') return;
         }
 
-        const res = await fetch('/api/membro/aprovar-pendentes', { 
+        const res = await fetch('/api/membro/aprovar', { 
           method: 'POST', 
           headers: { 'Content-Type': 'application/json' }, 
           body: JSON.stringify({ id, password: pwd }) 
@@ -908,26 +930,11 @@
     adminVisitasBtn.addEventListener('click', () => {
       const pwdToUse = adminPassword || getAdminPasswordCached();
       if (!pwdToUse) {
-        alert('Password não encontrada. Reabre o menu Admin.');
+        alert('Password não encontrada. Reabre o menu Admin e introduz a password.');
         return;
       }
 
-      // Envio seguro por POST invisível para evitar expor a password no URL
-      const form = document.createElement('form');
-      form.method = 'POST';
-      form.action = '/admin/visitas';
-      form.target = '_blank';
-
-      const input = document.createElement('input');
-      input.type = 'hidden';
-      input.name = 'password';
-      input.value = pwdToUse;
-
-      form.appendChild(input);
-      document.body.appendChild(form);
-      form.submit();
-      document.body.removeChild(form);
-
+      window.open('/admin/visitas?pwd=' + encodeURIComponent(pwdToUse), '_blank');
       closeAdminMenu();
     });
 
@@ -936,31 +943,19 @@
       else closeModal();
     });
 
-async function carregarArvoreValidada() {
+    async function carregarArvoreValidada() {
       try {
         const res = await fetch('/api/arvore', { cache:'no-store' });
-        if (!res.ok) throw new Error('Erro ao carregar dados da árvore (HTTP ' + res.status + ')');
-        
-        const data = await res.json();
-        if (!data || Object.keys(data).length === 0) {
-          treeEl.innerHTML = '<div style="padding:20px; text-align:center; color:var(--muted);">A árvore está vazia ou não foram encontrados dados.</div>';
-          return;
-        }
-
-        treeData = data;
+        if (!res.ok) throw new Error('Erro ao carregar dados da árvore');
+        treeData = await res.json();
         construirArvore();
         state.scale = 1; state.tx = 0; state.ty = 0;
-        
         setTimeout(() => {
           const rootId = (treeData['root'] ? 'root' : (Object.values(treeData).find(n => !n.parent) || Object.keys(treeData)[0]));
           if (rootId) centerViewOnNode(rootId);
           setTimeout(() => { autoFitForSmallScreens(); setSvgVisibilityForDevice(); }, 80);
         }, 80);
-
-      } catch (e) {
-        console.warn('Erro ao carregar árvore:', e.message);
-        treeEl.innerHTML = '<div style="padding:20px; text-align:center; color:#dc3545;">Erro ao carregar os dados da árvore. Por favor, atualize a página.</div>';
-      }
+      } catch (e) { console.warn('Erro ao carregar árvore:', e.message); }
     }
 
     function autoFitForSmallScreens() { const vw = area.clientWidth; const contentW = Math.max(inner.scrollWidth, inner.offsetWidth); if (vw < 820 && contentW > 0) { const targetScale = Math.max(state.minScale, Math.min(1, (vw - 80) / contentW)); state.scale = targetScale; state.tx = Math.round((vw - contentW * state.scale) / 2); state.ty = 20; clampTranslate(); applyTransform(); } }
