@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <!-- Árvore Genealógica Família Tão
-     Versão: v1.2.5-d2
-     Alterações: Corrigido o erro de sintaxe (&), robustez na autenticação de Admin e validação de membros corrigida.
+     Versão: v1.2.6-d2
+     Alterações: Submissão segura de visitas por POST (sem expor a password no URL) e correção do fecho do menu Admin.
 -->
 <html lang="pt">
 <head>
@@ -171,27 +171,6 @@
     const GAP_X = 56;
     const GAP_Y = 60;
     const DOCS_BASE_PATH = '/docs/';
-
-    function renderObsWithDocs(obsText, docsBase) {
-      if (!obsText) return '';
-      docsBase = (docsBase || '').replace(/\/+$/, '') + '/';
-      const escapeHtml = s => String(s)
-        .replace(/&/g,'&amp;')
-        .replace(/</g,'&lt;')
-        .replace(/>/g,'&gt;')
-        .replace(/"/g,'&quot;');
-
-      obsText = String(obsText).replace(/\[\[br\]\]/gi, '\n');
-      const escaped = escapeHtml(obsText).replace(/\n/g, '<br>');
-
-      return escaped.replace(/\[\[(.*?)\]\]/g, function(_, name) {
-        const safeName = String(name || '').trim();
-        if (!/^[\w\-\.\s\/]+$/.test(safeName)) return escapeHtml('[[' + safeName + ']]');
-        const url = docsBase + encodeURIComponent(safeName).replace(/%2F/g, '/');
-        const label = escapeHtml(safeName);
-        return `<a href="${url}" target="_blank" rel="noopener noreferrer" class="doc-link">${label}</a>`;
-      });
-    }
 
     function buildObsElement(obsText, docsBase) {
       const container = document.createElement('div');
@@ -432,7 +411,7 @@
         const m = treeData[id]; if(!m) return;
         const card = document.createElement('div'); card.className = 'person'; card.dataset.id = id; card.dataset.parent = m.parent || '';
         const headerHtml = `<h3>${(m.nome||'').replace(/</g,'&lt;')}</h3>
-          <p><strong>Naturalidade:</strong> ${(m.naturalidade||'').replace(/</g,'&lt;')}</p>
+          <p><strong>Naturalidade:</strong> ${(m.naturalidade||'').replace(/</g,&apos;&lt;&apos;)}</p>
           <p><strong>Matrimónios:</strong> ${(m.matrimonio||'').replace(/</g,'&lt;')}</p>`;
         card.innerHTML = headerHtml;
         if (m.obs) { const obsEl = buildObsElement(m.obs, DOCS_BASE_PATH); card.appendChild(obsEl); }
@@ -711,7 +690,6 @@
       }
     });
 
-    // Funções de Gestão de Sessão Administrativa Atualizadas
     function isAdminLoggedIn() {
       return sessionStorage.getItem("admin_logged") === "true";
     }
@@ -735,7 +713,7 @@
           if (pwd === null || pwd === '') return;
         }
 
-        const res = await fetch('/api/membro/aprovar', { 
+        const res = await fetch('/api/membro/aprovar-pendentes', { 
           method: 'POST', 
           headers: { 'Content-Type': 'application/json' }, 
           body: JSON.stringify({ id, password: pwd }) 
@@ -930,11 +908,26 @@
     adminVisitasBtn.addEventListener('click', () => {
       const pwdToUse = adminPassword || getAdminPasswordCached();
       if (!pwdToUse) {
-        alert('Password não encontrada. Reabre o menu Admin e introduz a password.');
+        alert('Password não encontrada. Reabre o menu Admin.');
         return;
       }
 
-      window.open('/admin/visitas?pwd=' + encodeURIComponent(pwdToUse), '_blank');
+      // Envio seguro por POST invisível para evitar expor a password no URL
+      const form = document.createElement('form');
+      form.method = 'POST';
+      form.action = '/admin/visitas';
+      form.target = '_blank';
+
+      const input = document.createElement('input');
+      input.type = 'hidden';
+      input.name = 'password';
+      input.value = pwdToUse;
+
+      form.appendChild(input);
+      document.body.appendChild(form);
+      form.submit();
+      document.body.removeChild(form);
+
       closeAdminMenu();
     });
 
