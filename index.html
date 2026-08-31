@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <!-- Árvore Genealógica Família Tão
-     Versão: v1.2.3-d1
-     Alterações: Adaptado para arquitetura Cloudflare D1
+     Versão: v1.2.3-d2
+     Alterações: Adaptado para arquitetura Cloudflare D1 com Sessão de Admin em Cache
 -->
 <html lang="pt">
 <head>
@@ -704,14 +704,49 @@
       }
     });
 
-    // Endpoint atualizado para D1 (/api/membro/aprovar)
+    // Funções de Gestão de Sessão Administrativa com Cache
+    function isAdminLoggedIn() {
+      return sessionStorage.getItem("admin_logged") === "true";
+    }
+
+    function getAdminPasswordCached() {
+      return sessionStorage.getItem("admin_pwd_cache") || "";
+    }
+
+    // Endpoint atualizado para D1 (/api/membro/aprovar) com cache de password
     async function approveMember(id) {
       try {
-        const password = prompt('Introduz a password do administrador para validar este membro:');
-        if (password === null) return;
-        const res = await fetch('/api/membro/aprovar', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ id, password }) });
+        let passwordParaEnviar = "";
+
+        if (!isAdminLoggedIn()) {
+          const pwd = prompt('Introduz a password do administrador para validar este membro:');
+          if (pwd === null) return;
+          passwordParaEnviar = pwd;
+        } else {
+          passwordParaEnviar = getAdminPasswordCached();
+        }
+
+        const res = await fetch('/api/membro/aprovar', { 
+          method:'POST', 
+          headers:{'Content-Type':'application/json'}, 
+          body:JSON.stringify({ id, password: passwordParaEnviar }) 
+        });
+        
         const j = await res.json();
-        if (!res.ok || j.status !== 'ok') throw new Error(j.error || 'Erro ao validar membro');
+        
+        if (!res.ok || j.status !== 'ok') {
+          // Se falhou por password incorreta, limpa a cache
+          sessionStorage.removeItem("admin_logged");
+          sessionStorage.removeItem("admin_pwd_cache");
+          throw new Error(j.error || 'Erro ao validar membro');
+        }
+
+        // Se deu sucesso e não estava logado, guarda na sessão
+        if (!isAdminLoggedIn() && passwordParaEnviar) {
+          sessionStorage.setItem("admin_logged", "true");
+          sessionStorage.setItem("admin_pwd_cache", passwordParaEnviar);
+        }
+
         if (treeData[id]) {
           treeData[id].status = 'approved';
           const card = document.querySelector(`[data-id="${id}"]`);
@@ -819,9 +854,17 @@
     }
 
     adminBtn.addEventListener('click', () => {
-      const pwd = prompt('Introduz a password do administrador:');
-      if (pwd === null || pwd === '') return;
-      openAdminMenuWithPassword(pwd);
+      if (isAdminLoggedIn()) {
+        openAdminMenuWithPassword(getAdminPasswordCached());
+      } else {
+        const pwd = prompt('Introduz a password do administrador:');
+        if (pwd === null || pwd === '') return;
+        
+        // Testa se a password é válida fazendo uma pequena verificação ou assumindo cache temporária
+        sessionStorage.setItem("admin_logged", "true");
+        sessionStorage.setItem("admin_pwd_cache", pwd);
+        openAdminMenuWithPassword(pwd);
+      }
     });
 
     adminCloseBtn.addEventListener('click', () => {
@@ -830,17 +873,27 @@
 
     // Endpoint atualizado para aprovar pendentes no D1 (/api/membro/aprovar-pendentes)
     adminApproveAllBtn.addEventListener('click', async () => {
-      if (!adminPassword) {
+      const pwdToUse = adminPassword || getAdminPasswordCached();
+      if (!pwdToUse) {
         alert('Password não encontrada. Reabre o menu Admin e introduz a password.');
         return;
       }
       try {
-        const res = await fetch('/api/membro/aprovar-pendentes', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ ids:null, password: adminPassword }) });
+        const res = await fetch('/api/membro/aprovar-pendentes', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ ids:null, password: pwdToUse }) });
         const j = await res.json();
         if (!res.ok) {
-          if (j && j.error === 'invalid_password') throw new Error('Password inválida');
+          if (j && j.error === 'invalid_password') {
+            sessionStorage.removeItem("admin_logged");
+            sessionStorage.removeItem("admin_pwd_cache");
+            throw new Error('Password inválida');
+          }
           throw new Error(j.error || 'Erro ao aprovar');
         }
+        
+        // Grava sessão com sucesso
+        sessionStorage.setItem("admin_logged", "true");
+        sessionStorage.setItem("admin_pwd_cache", pwdToUse);
+
         await carregarArvoreValidada();
         alert('Todos os pendentes foram aprovados.');
       } catch (err) {
@@ -851,7 +904,8 @@
     });
 
     adminVisitasBtn.addEventListener('click', () => {
-      if (!adminPassword) {
+      const pwdToUse = adminPassword || getAdminPasswordCached();
+      if (!pwdToUse) {
         alert('Password não encontrada. Reabre o menu Admin e introduz a password.');
         return;
       }
@@ -865,7 +919,7 @@
       const inputPwd = document.createElement('input');
       inputPwd.type = 'hidden';
       inputPwd.name = 'password';
-      inputPwd.value = adminPassword;
+      inputPwd.value = pwdToUse;
       form.appendChild(inputPwd);
 
       document.body.appendChild(form);
