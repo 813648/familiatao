@@ -936,19 +936,31 @@
       else closeModal();
     });
 
-    async function carregarArvoreValidada() {
+async function carregarArvoreValidada() {
       try {
         const res = await fetch('/api/arvore', { cache:'no-store' });
-        if (!res.ok) throw new Error('Erro ao carregar dados da árvore');
-        treeData = await res.json();
+        if (!res.ok) throw new Error('Erro ao carregar dados da árvore (HTTP ' + res.status + ')');
+        
+        const data = await res.json();
+        if (!data || Object.keys(data).length === 0) {
+          treeEl.innerHTML = '<div style="padding:20px; text-align:center; color:var(--muted);">A árvore está vazia ou não foram encontrados dados.</div>';
+          return;
+        }
+
+        treeData = data;
         construirArvore();
         state.scale = 1; state.tx = 0; state.ty = 0;
+        
         setTimeout(() => {
           const rootId = (treeData['root'] ? 'root' : (Object.values(treeData).find(n => !n.parent) || Object.keys(treeData)[0]));
           if (rootId) centerViewOnNode(rootId);
           setTimeout(() => { autoFitForSmallScreens(); setSvgVisibilityForDevice(); }, 80);
         }, 80);
-      } catch (e) { console.warn('Erro ao carregar árvore:', e.message); }
+
+      } catch (e) {
+        console.warn('Erro ao carregar árvore:', e.message);
+        treeEl.innerHTML = '<div style="padding:20px; text-align:center; color:#dc3545;">Erro ao carregar os dados da árvore. Por favor, atualize a página.</div>';
+      }
     }
 
     function autoFitForSmallScreens() { const vw = area.clientWidth; const contentW = Math.max(inner.scrollWidth, inner.offsetWidth); if (vw < 820 && contentW > 0) { const targetScale = Math.max(state.minScale, Math.min(1, (vw - 80) / contentW)); state.scale = targetScale; state.tx = Math.round((vw - contentW * state.scale) / 2); state.ty = 20; clampTranslate(); applyTransform(); } }
