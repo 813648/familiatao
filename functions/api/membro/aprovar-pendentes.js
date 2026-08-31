@@ -1,7 +1,7 @@
 export async function onRequestPost(context) {
   try {
     const body = await context.request.json();
-    const { password } = body;
+    const { id, ids, password } = body;
     const ADMIN_PASSWORD = context.env.ADMIN_PASSWORD || "12345";
 
     if (!password || password !== ADMIN_PASSWORD) {
@@ -11,12 +11,32 @@ export async function onRequestPost(context) {
       });
     }
 
-    // Se a password estiver certa, aprova todos os pendentes
-    await context.env.ARVORE_FAMILIA_DB.prepare(`
-      UPDATE membros 
-      SET status = 'approved' 
-      WHERE status = 'pending'
-    `).run();
+    // Se vier um ID individual (pedido pelo botão "Validar" da árvore)
+    if (id) {
+      await context.env.ARVORE_FAMILIA_DB.prepare(`
+        UPDATE membros 
+        SET status = 'approved' 
+        WHERE id = ?
+      `).bind(id).run();
+    } 
+    // Se vier uma lista de IDs específica
+    else if (ids && Array.isArray(ids) && ids.length > 0) {
+      for (const memberId of ids) {
+        await context.env.ARVORE_FAMILIA_DB.prepare(`
+          UPDATE membros 
+          SET status = 'approved' 
+          WHERE id = ?
+        `).bind(memberId).run();
+      }
+    } 
+    // Se não vier ID nem lista (pedido pelo menu Admin para aprovar todos)
+    else {
+      await context.env.ARVORE_FAMILIA_DB.prepare(`
+        UPDATE membros 
+        SET status = 'approved' 
+        WHERE status = 'pending'
+      `).run();
+    }
 
     return new Response(JSON.stringify({ status: "ok" }), {
       headers: { "Content-Type": "application/json" }
