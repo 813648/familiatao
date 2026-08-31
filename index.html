@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+     <!DOCTYPE html>
 <!-- Árvore Genealógica Família Tão
      Versão: v1.2.4-d2
      Alterações: Corrigido o erro 405 nas Visitas, robustez no parse de JSON e etiqueta 'pendente' aplicada a criações e alterações.
@@ -432,7 +432,7 @@
         const m = treeData[id]; if(!m) return;
         const card = document.createElement('div'); card.className = 'person'; card.dataset.id = id; card.dataset.parent = m.parent || '';
         const headerHtml = `<h3>${(m.nome||'').replace(/</g,'&lt;')}</h3>
-          <p><strong>Naturalidade:</strong> ${(m.naturalidade||'').replace(/</g,&apos;&lt;&apos;)}</p>
+          <p><strong>Naturalidade:</strong> ${(m.naturalidade||'').replace(/</g,'&lt;')}</p>
           <p><strong>Matrimónios:</strong> ${(m.matrimonio||'').replace(/</g,'&lt;')}</p>`;
         card.innerHTML = headerHtml;
         if (m.obs) { const obsEl = buildObsElement(m.obs, DOCS_BASE_PATH); card.appendChild(obsEl); }
