@@ -1,7 +1,7 @@
 export async function onRequestGet(context) {
   try {
     // Assume que a ligação à base de dados D1 no painel do Cloudflare Pages se chama 'DB'
-    const { results } = await context.env.DB.prepare("SELECT * FROM membros").all();
+    const { results } = await context.env.ARVORE_FAMILIA_DB.prepare("SELECT * FROM membros").all();
 
     // Se a tabela estiver vazia, pode devolver um objeto vazio ou uma estrutura inicial
     if (!results || results.length === 0) {
