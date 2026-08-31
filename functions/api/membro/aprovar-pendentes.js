@@ -11,30 +11,19 @@ export async function onRequestPost(context) {
       });
     }
 
-    // Se vier um ID individual (pedido pelo botão "Validar" da árvore)
     if (id) {
       await context.env.ARVORE_FAMILIA_DB.prepare(`
-        UPDATE membros 
-        SET status = 'approved' 
-        WHERE id = ?
+        UPDATE membros SET status = 'approved' WHERE id = ?
       `).bind(id).run();
-    } 
-    // Se vier uma lista de IDs específica
-    else if (ids && Array.isArray(ids) && ids.length > 0) {
+    } else if (ids && Array.isArray(ids) && ids.length > 0) {
       for (const memberId of ids) {
         await context.env.ARVORE_FAMILIA_DB.prepare(`
-          UPDATE membros 
-          SET status = 'approved' 
-          WHERE id = ?
+          UPDATE membros SET status = 'approved' WHERE id = ?
         `).bind(memberId).run();
       }
-    } 
-    // Se não vier ID nem lista (pedido pelo menu Admin para aprovar todos)
-    else {
+    } else {
       await context.env.ARVORE_FAMILIA_DB.prepare(`
-        UPDATE membros 
-        SET status = 'approved' 
-        WHERE status = 'pending'
+        UPDATE membros SET status = 'approved' WHERE status = 'pending'
       `).run();
     }
 
