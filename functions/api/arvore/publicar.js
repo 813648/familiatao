@@ -6,7 +6,7 @@ export async function onRequestPost(context) {
     // Exemplo genérico de atualização por cada elemento:
     for (const id in body) {
       const m = body[id];
-      await context.env.DB.prepare(`
+      await context.env.ARVORE_FAMILIA_DB.prepare(`
         INSERT INTO membros (id, nome, naturalidade, matrimonio, obs, parent, filhos, status)
         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
         ON CONFLICT(id) DO UPDATE SET
