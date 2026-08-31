@@ -1,7 +1,7 @@
-     <!DOCTYPE html>
+<!DOCTYPE html>
 <!-- Árvore Genealógica Família Tão
-     Versão: v1.2.4-d2
-     Alterações: Corrigido o erro 405 nas Visitas, robustez no parse de JSON e etiqueta 'pendente' aplicada a criações e alterações.
+     Versão: v1.2.5-d2
+     Alterações: Corrigido o erro de sintaxe (&), robustez na autenticação de Admin e validação de membros corrigida.
 -->
 <html lang="pt">
 <head>
@@ -665,7 +665,6 @@
     document.getElementById('closeBtn').addEventListener('click', closeModal);
     overlay.addEventListener('click', closeModal);
 
-    // Endpoint atualizado para a API Cloudflare D1 (/api/arvore/publicar) - Marca sempre como 'pending' nas alterações
     document.getElementById('saveBtn').addEventListener('click', async () => {
       if (!selectedPerson) return;
       const id = selectedPerson.dataset.id;
@@ -673,7 +672,7 @@
       treeData[id].naturalidade = document.getElementById('nat').value;
       treeData[id].matrimonio = document.getElementById('matr').value;
       treeData[id].obs = document.getElementById('obs').value;
-      treeData[id].status = 'pending'; // Aplica o estado pendente também a alterações
+      treeData[id].status = 'pending';
 
       const card = selectedPerson;
       if (card) {
@@ -712,7 +711,7 @@
       }
     });
 
-    // Funções de Gestão de Sessão Administrativa com Cache
+    // Funções de Gestão de Sessão Administrativa Atualizadas
     function isAdminLoggedIn() {
       return sessionStorage.getItem("admin_logged") === "true";
     }
@@ -721,38 +720,39 @@
       return sessionStorage.getItem("admin_pwd_cache") || "";
     }
 
-    // Endpoint atualizado para D1 (/api/membro/aprovar) com cache de password e tratamento de resposta vazia
+    function clearAdminSession() {
+      sessionStorage.removeItem("admin_logged");
+      sessionStorage.removeItem("admin_pwd_cache");
+      adminPassword = null;
+    }
+
     async function approveMember(id) {
       try {
-        let passwordParaEnviar = "";
+        let pwd = getAdminPasswordCached();
 
-        if (!isAdminLoggedIn()) {
-          const pwd = prompt('Introduz a password do administrador para validar este membro:');
-          if (pwd === null) return;
-          passwordParaEnviar = pwd;
-        } else {
-          passwordParaEnviar = getAdminPasswordCached();
+        if (!isAdminLoggedIn() || !pwd) {
+          pwd = prompt('Introduz a password do administrador para validar este membro:');
+          if (pwd === null || pwd === '') return;
         }
 
         const res = await fetch('/api/membro/aprovar', { 
-          method:'POST', 
-          headers:{'Content-Type':'application/json'}, 
-          body:JSON.stringify({ id, password: passwordParaEnviar }) 
+          method: 'POST', 
+          headers: { 'Content-Type': 'application/json' }, 
+          body: JSON.stringify({ id, password: pwd }) 
         });
         
         const text = await res.text();
         const j = text ? JSON.parse(text) : {};
         
         if (!res.ok || (j && j.status !== 'ok')) {
-          sessionStorage.removeItem("admin_logged");
-          sessionStorage.removeItem("admin_pwd_cache");
+          if (j && (j.error === 'invalid_password' || res.status === 401 || res.status === 403)) {
+            clearAdminSession();
+          }
           throw new Error(j.error || 'Erro ao validar membro');
         }
 
-        if (!isAdminLoggedIn() && passwordParaEnviar) {
-          sessionStorage.setItem("admin_logged", "true");
-          sessionStorage.setItem("admin_pwd_cache", passwordParaEnviar);
-        }
+        sessionStorage.setItem("admin_logged", "true");
+        sessionStorage.setItem("admin_pwd_cache", pwd);
 
         if (treeData[id]) {
           treeData[id].status = 'approved';
@@ -762,9 +762,9 @@
           }
         }
         updateApproveButtonState(id);
-        alert('Membro validado.');
+        alert('Membro validado com sucesso.');
       } catch (err) {
-        alert('Erro: ' + (err.message || 'não foi possível validar'));
+        alert('Erro ao validar: ' + (err.message || err));
       }
     }
 
@@ -784,7 +784,6 @@
       if(!selectedPerson) return;
       const parentId = selectedPerson.dataset.id;
       const newId = 'id'+Math.random().toString(36).slice(2,10);
-      // Atribuído status 'pending' logo na criação do filho
       treeData[newId] = { id:newId, nome:'Novo Filho', naturalidade:'', matrimonio:'', obs:'', parent:parentId, filhos:[], status:'pending' };
       treeData[parentId].filhos = treeData[parentId].filhos || [];
       treeData[parentId].filhos.push(newId);
@@ -861,16 +860,36 @@
       adminModal.style.visibility = 'hidden';
     }
 
-    adminBtn.addEventListener('click', () => {
-      if (isAdminLoggedIn()) {
-        openAdminMenuWithPassword(getAdminPasswordCached());
-      } else {
-        const pwd = prompt('Introduz a password do administrador:');
+    adminBtn.addEventListener('click', async () => {
+      let pwd = getAdminPasswordCached();
+      
+      if (!isAdminLoggedIn() || !pwd) {
+        pwd = prompt('Introduz a password do administrador:');
         if (pwd === null || pwd === '') return;
+      }
+
+      try {
+        const res = await fetch('/api/membro/aprovar-pendentes', { 
+          method: 'POST', 
+          headers: { 'Content-Type': 'application/json' }, 
+          body: JSON.stringify({ ids: [], password: pwd }) 
+        });
         
+        const text = await res.text();
+        const j = text ? JSON.parse(text) : {};
+
+        if (!res.ok || (j && (j.error === 'invalid_password' || res.status === 401 || res.status === 403))) {
+          clearAdminSession();
+          alert('Password incorreta.');
+          return;
+        }
+
         sessionStorage.setItem("admin_logged", "true");
         sessionStorage.setItem("admin_pwd_cache", pwd);
         openAdminMenuWithPassword(pwd);
+
+      } catch (err) {
+        alert('Erro ao verificar a password: ' + (err.message || err));
       }
     });
 
@@ -878,7 +897,6 @@
       closeAdminMenu();
     });
 
-    // Endpoint atualizado para aprovar pendentes no D1 com tratamento seguro de JSON
     adminApproveAllBtn.addEventListener('click', async () => {
       const pwdToUse = adminPassword || getAdminPasswordCached();
       if (!pwdToUse) {
@@ -890,9 +908,8 @@
         const text = await res.text();
         const j = text ? JSON.parse(text) : {};
         if (!res.ok) {
-          if (j && j.error === 'invalid_password') {
-            sessionStorage.removeItem("admin_logged");
-            sessionStorage.removeItem("admin_pwd_cache");
+          if (j && (j.error === 'invalid_password' || res.status === 401 || res.status === 403)) {
+            clearAdminSession();
             throw new Error('Password inválida');
           }
           throw new Error(j.error || 'Erro ao aprovar');
@@ -910,7 +927,6 @@
       }
     });
 
-    // Correção do Erro 405 nas Visitas: Faz o redirecionamento via GET seguro ou query parametrizada conforme a rota
     adminVisitasBtn.addEventListener('click', () => {
       const pwdToUse = adminPassword || getAdminPasswordCached();
       if (!pwdToUse) {
@@ -918,7 +934,6 @@
         return;
       }
 
-      // Alterado para abrir o endpoint de visitas de forma compatível (GET ou respetiva rota de páginas estáticas)
       window.open('/admin/visitas?pwd=' + encodeURIComponent(pwdToUse), '_blank');
       closeAdminMenu();
     });
