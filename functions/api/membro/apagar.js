@@ -11,7 +11,7 @@ export async function onRequestPost(context) {
     }
 
     // Executa a remoção na tabela D1
-    await env.DB.prepare("DELETE FROM ARVORE_FAMILIA_DB WHERE id = ?").bind(id).run();
+    await env.DB.prepare("DELETE FROM arvore WHERE id = ?").bind(id).run();
 
     return new Response(
       JSON.stringify({ success: true, message: "Registo apagado na D1." }),
