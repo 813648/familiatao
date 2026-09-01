@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <!-- Árvore Genealógica Família Tão
-     Versão: v1.2.5-d2
-     Alterações: Corrigido o erro de sintaxe (&), robustez na autenticação de Admin e validação de membros corrigida.
+     Versão: v1.2.5-d2 (Com Modal de Password Integrado)
+     Alterações: Integrado Modal estilizado de Autenticação para Aprovação por Password de Administrador.
 -->
 <html lang="pt">
 <head>
@@ -16,7 +16,7 @@
     })();
   </script>
   <style>
-    :root{ --primary:#007BFF; --muted:#6b7280; --card-bg:#fff; --accent:#ff9800; --search-bg:#fff; --search-border:#e6edf3; }
+    :root{ --primary:#007BFF; --muted:#6b7280; --card-bg:#fff; --accent:#ff9800; --search-bg:#fff; --search-border:#e6edf3; --danger:#dc3545; }
     html,body{ height:100%; margin:0; }
     body{ font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial; padding:18px; background:#f4f6f8; color:#111827; -webkit-user-select:none; user-select:none; box-sizing:border-box; }
     *,*::before,*::after{ box-sizing:inherit; }
@@ -36,7 +36,8 @@
 
     .btn { background:var(--primary); color:#fff; border:0; padding:8px 10px; border-radius:8px; cursor:pointer; font-weight:600; white-space:nowrap; }
     .btn.secondary { background:#6b7280; }
-    .btn.danger { background:#dc3545; }
+    .btn.danger { background:var(--danger); }
+    .btn:disabled { opacity:0.65; cursor:not-allowed; }
     #fitBtn { border-radius:8px; padding:8px 12px; background:#0b74ff; color:#fff; border:0; box-shadow:none; }
 
     .tree-area{ position:relative; width:100%; min-height: calc(100vh - 120px); background:var(--card-bg); border-radius:10px; padding:18px; box-shadow:0 6px 18px rgba(16,24,40,0.06); overflow:hidden; touch-action:none; display:block; }
@@ -74,8 +75,8 @@
     .modal textarea { max-height:220px; resize:vertical; overflow:auto; }
     .modal .controls { display:flex; gap:8px; justify-content:flex-end; margin-top:8px; flex-wrap:wrap; }
 
-    .admin-modal { width:320px; padding:12px; display:none; }
-    .admin-modal .admin-actions { display:flex; gap:8px; justify-content:flex-end; margin-top:12px; }
+    .admin-modal { width:340px; padding:16px; display:none; z-index:1002; }
+    .admin-modal .admin-actions { display:flex; gap:8px; justify-content:flex-end; margin-top:14px; }
 
     @media (max-width:820px){
       body{ padding:10px; }
@@ -87,6 +88,7 @@
       .person{ width:240px; padding:14px; }
       .person .obs { max-height:84px; font-size:13px; }
       .modal{ left:0; top:0; transform:none; width:100%; height:100%; max-width:100%; max-height:none; border-radius:0; padding:12px; overflow:auto; }
+      .modal.admin-modal{ width:100%; height:auto; max-height:100%; top:50%; left:50%; transform:translate(-50%,-50%); border-radius:10px; }
       .modal.hidden-measure { display:block; }
       .tree-area{ padding:12px; min-height: calc(100vh - 160px); }
       #lines { display:block; }
@@ -129,6 +131,7 @@
 
   <div id="overlay" class="overlay"></div>
 
+  <!-- Modal do Membro -->
   <div id="modal" class="modal" role="dialog" aria-modal="true">
     <h3>Editar Membro</h3>
 
@@ -153,6 +156,24 @@
     </div>
   </div>
 
+  <!-- NOVO: Modal Estilizado para Validação por Password de Administrador -->
+  <div id="passwordModal" class="modal admin-modal" role="dialog" aria-modal="true" style="display:none;">
+    <h3>Aprovação de Administrador</h3>
+    <div style="font-size:13px; color:var(--muted); margin-bottom:12px;">
+      Introduza a palavra-passe do administrador para aprovar as alterações deste membro.
+    </div>
+
+    <label for="adminPasswordInput">Palavra-passe</label>
+    <input type="password" id="adminPasswordInput" placeholder="Digite a palavra-passe..." autocomplete="current-password" />
+    <div id="passwordError" style="color:var(--danger); font-size:12px; display:none; margin-top:4px; font-weight:600;">Palavra-passe incorreta.</div>
+
+    <div class="admin-actions">
+      <button id="confirmApproveBtn" class="btn">Confirmar</button>
+      <button id="cancelPasswordBtn" class="btn secondary">Cancelar</button>
+    </div>
+  </div>
+
+  <!-- Menu Administrativo -->
   <div id="adminModal" class="modal admin-modal" role="dialog" aria-modal="true" aria-hidden="true">
     <h3>Menu Administrativo</h3>
     <div style="font-size:13px;color:var(--muted)">Acesso com password administradora</div>
@@ -248,6 +269,7 @@
     let suppressModalUntil = 0;
     let adminPassword = null;
     let selectedPerson = null;
+    let pendingApprovalId = null;
     let treeData = {};
     let computedPositions = {};
     let lastSearchMatches = [];
@@ -263,6 +285,13 @@
     const modal = document.getElementById('modal');
     const overlay = document.getElementById('overlay');
     const approveMemberBtn = document.getElementById('approveMemberBtn');
+
+    /* Elementos do Modal de Password */
+    const passwordModal = document.getElementById('passwordModal');
+    const adminPasswordInput = document.getElementById('adminPasswordInput');
+    const passwordError = document.getElementById('passwordError');
+    const confirmApproveBtn = document.getElementById('confirmApproveBtn');
+    const cancelPasswordBtn = document.getElementById('cancelPasswordBtn');
 
     const adminBtn = document.getElementById('adminBtn');
     const adminModal = document.getElementById('adminModal');
@@ -711,7 +740,7 @@
       }
     });
 
-    // Funções de Gestão de Sessão Administrativa Atualizadas
+    // Gestão de Sessão Administrativa
     function isAdminLoggedIn() {
       return sessionStorage.getItem("admin_logged") === "true";
     }
@@ -726,16 +755,65 @@
       adminPassword = null;
     }
 
-    async function approveMember(id) {
+    /* GESTÃO DO MODAL DE PASSWORD DE APROVAÇÃO INDIVIDUAL */
+    
+    function fecharModalPassword() {
+      passwordModal.style.display = 'none';
+      overlay.style.display = 'none';
+      document.body.classList.remove('modal-open');
+      pendingApprovalId = null;
+    }
+
+    cancelPasswordBtn.addEventListener('click', fecharModalPassword);
+
+    approveMemberBtn.addEventListener('click', async () => {
+      if (!selectedPerson) return;
+      pendingApprovalId = selectedPerson.dataset.id;
+      
+      const cachedPwd = getAdminPasswordCached();
+      if (isAdminLoggedIn() && cachedPwd) {
+        await executarAprovacaoMembro(pendingApprovalId, cachedPwd);
+        return;
+      }
+
+      adminPasswordInput.value = '';
+      passwordError.style.display = 'none';
+
+      modal.style.display = 'none';
+      passwordModal.style.display = 'block';
+      
+      if (window.innerWidth > 820) {
+        passwordModal.style.left = '50%'; passwordModal.style.top = '50%'; passwordModal.style.transform = 'translate(-50%,-50%)';
+      } else {
+        passwordModal.style.left = '50%'; passwordModal.style.top = '50%'; passwordModal.style.transform = 'translate(-50%,-50%)';
+      }
+
+      setTimeout(() => adminPasswordInput.focus(), 50);
+    });
+
+    confirmApproveBtn.addEventListener('click', async () => {
+      const pwd = adminPasswordInput.value.trim();
+      if (!pwd) {
+        passwordError.textContent = 'Por favor introduza a palavra-passe.';
+        passwordError.style.display = 'block';
+        return;
+      }
+      await executarAprovacaoMembro(pendingApprovalId, pwd);
+    });
+
+    adminPasswordInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        confirmApproveBtn.click();
+      }
+    });
+
+    async function executarAprovacaoMembro(id, pwd) {
       try {
-        let pwd = getAdminPasswordCached();
+        confirmApproveBtn.disabled = true;
+        confirmApproveBtn.textContent = 'A processar...';
 
-        if (!isAdminLoggedIn() || !pwd) {
-          pwd = prompt('Introduz a password do administrador para validar este membro:');
-          if (pwd === null || pwd === '') return;
-        }
-
-        const res = await fetch('/api/membro/aprovar', { 
+        const res = await fetch('/api/membro/aprovar-membro', { 
           method: 'POST', 
           headers: { 'Content-Type': 'application/json' }, 
           body: JSON.stringify({ id, password: pwd }) 
@@ -747,6 +825,9 @@
         if (!res.ok || (j && j.status !== 'ok')) {
           if (j && (j.error === 'invalid_password' || res.status === 401 || res.status === 403)) {
             clearAdminSession();
+            passwordError.textContent = 'Palavra-passe incorreta.';
+            passwordError.style.display = 'block';
+            return;
           }
           throw new Error(j.error || 'Erro ao validar membro');
         }
@@ -761,18 +842,20 @@
             const badge = card.querySelector('.badge'); if (badge) badge.remove();
           }
         }
+        
+        fecharModalPassword();
+        closeModal();
         updateApproveButtonState(id);
         alert('Membro validado com sucesso.');
+        await carregarArvoreValidada();
+
       } catch (err) {
         alert('Erro ao validar: ' + (err.message || err));
+      } finally {
+        confirmApproveBtn.disabled = false;
+        confirmApproveBtn.textContent = 'Confirmar';
       }
     }
-
-    approveMemberBtn.addEventListener('click', () => {
-      if (!selectedPerson) return;
-      const id = selectedPerson.dataset.id;
-      approveMember(id);
-    });
 
     function updateApproveButtonState(id) {
       if (!id || !treeData[id]) { approveMemberBtn.disabled = true; return; }
@@ -939,7 +1022,8 @@
     });
 
     overlay.addEventListener('click', () => {
-      if (adminModal.style.display === 'block') closeAdminMenu();
+      if (passwordModal.style.display === 'block') fecharModalPassword();
+      else if (adminModal.style.display === 'block') closeAdminMenu();
       else closeModal();
     });
 
