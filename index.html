@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <!-- Árvore Genealógica Família Tão
-     Versão: v1.2.5-d2 (Com Modal de Password Integrado)
-     Alterações: Integrado Modal estilizado de Autenticação para Aprovação por Password de Administrador.
+     Versão: v1.2.5-d2 (Com Gestão de Remoção Pendente Integrada)
+     Alterações: Correção do botão Apagar para marcar o membro como 'delete_pending' e persistir a alteração via API.
 -->
 <html lang="pt">
 <head>
@@ -53,7 +53,9 @@
     .person .obs { display:block; max-height:110px; overflow:auto; margin-top:8px; padding:8px; background:rgba(0,0,0,0.02); border-radius:6px; font-size:13px; color:var(--muted); text-align:left; white-space:normal; }
     .person .doc-link { color:var(--accent); font-weight:600; text-decoration:none; }
     .person .badge { position:absolute; top:8px; right:8px; background:#ffeb99; color:#6b4500; font-size:12px; padding:4px 6px; border-radius:6px; font-weight:700; border:1px solid rgba(0,0,0,0.06); z-index:4; }
+    .person .badge.danger-badge { background:#ffcdd2; color:#b71c1c; }
 
+    .person.delete-pending { background:#fff0f0; border-color:var(--danger); border-style:dashed; }
     .person.hovered { background:#fff8e6; border-color:#ffb800; transform: translateY(-4px); box-shadow:0 10px 26px rgba(16,24,40,0.12); }
     .person.descendant { background:#e8f6ff; border-color:#66a8ff; transform: translateY(-1px); box-shadow:0 6px 16px rgba(12,36,70,0.08); }
     .person.highlight { box-shadow:0 10px 28px rgba(2,6,23,0.12); transform: translateY(-2px); }
@@ -156,7 +158,7 @@
     </div>
   </div>
 
-  <!-- NOVO: Modal Estilizado para Validação por Password de Administrador -->
+  <!-- Modal Estilizado para Validação por Password de Administrador -->
   <div id="passwordModal" class="modal admin-modal" role="dialog" aria-modal="true" style="display:none;">
     <h3>Aprovação de Administrador</h3>
     <div style="font-size:13px; color:var(--muted); margin-bottom:12px;">
@@ -460,12 +462,22 @@
       function criarNo(id){
         const m = treeData[id]; if(!m) return;
         const card = document.createElement('div'); card.className = 'person'; card.dataset.id = id; card.dataset.parent = m.parent || '';
+        
+        if (m.status === 'delete_pending') {
+          card.classList.add('delete-pending');
+        }
+
         const headerHtml = `<h3>${(m.nome||'').replace(/</g,'&lt;')}</h3>
           <p><strong>Naturalidade:</strong> ${(m.naturalidade||'').replace(/</g,'&lt;')}</p>
           <p><strong>Matrimónios:</strong> ${(m.matrimonio||'').replace(/</g,'&lt;')}</p>`;
         card.innerHTML = headerHtml;
         if (m.obs) { const obsEl = buildObsElement(m.obs, DOCS_BASE_PATH); card.appendChild(obsEl); }
-        if (m.status === 'pending') { const badge = document.createElement('div'); badge.className = 'badge'; badge.innerText = 'Pendente'; card.appendChild(badge); }
+        
+        if (m.status === 'pending') { 
+          const badge = document.createElement('div'); badge.className = 'badge'; badge.innerText = 'Pendente'; card.appendChild(badge); 
+        } else if (m.status === 'delete_pending') {
+          const badge = document.createElement('div'); badge.className = 'badge danger-badge'; badge.innerText = 'Apagar Pendente'; card.appendChild(badge);
+        }
 
         card.addEventListener('pointerenter', (ev) => {
           ev.currentTarget.classList.add('hovered');
@@ -701,7 +713,9 @@
       treeData[id].naturalidade = document.getElementById('nat').value;
       treeData[id].matrimonio = document.getElementById('matr').value;
       treeData[id].obs = document.getElementById('obs').value;
-      treeData[id].status = 'pending';
+      if (treeData[id].status !== 'delete_pending') {
+        treeData[id].status = 'pending';
+      }
 
       const card = selectedPerson;
       if (card) {
@@ -715,11 +729,18 @@
           const newObs = buildObsElement(treeData[id].obs || '', DOCS_BASE_PATH);
           card.appendChild(newObs);
         }
-        if (!card.querySelector('.badge')) {
-          const badge = document.createElement('div');
+        
+        let badge = card.querySelector('.badge');
+        if (!badge) {
+          badge = document.createElement('div');
+          card.appendChild(badge);
+        }
+        if (treeData[id].status === 'delete_pending') {
+          badge.className = 'badge danger-badge';
+          badge.innerText = 'Apagar Pendente';
+        } else {
           badge.className = 'badge';
           badge.innerText = 'Pendente';
-          card.appendChild(badge);
         }
       }
 
@@ -835,18 +856,9 @@
         sessionStorage.setItem("admin_logged", "true");
         sessionStorage.setItem("admin_pwd_cache", pwd);
 
-        if (treeData[id]) {
-          treeData[id].status = 'approved';
-          const card = document.querySelector(`[data-id="${id}"]`);
-          if (card) {
-            const badge = card.querySelector('.badge'); if (badge) badge.remove();
-          }
-        }
-        
         fecharModalPassword();
         closeModal();
-        updateApproveButtonState(id);
-        alert('Membro validado com sucesso.');
+        alert('Membro processado/validado com sucesso.');
         await carregarArvoreValidada();
 
       } catch (err) {
@@ -859,8 +871,8 @@
 
     function updateApproveButtonState(id) {
       if (!id || !treeData[id]) { approveMemberBtn.disabled = true; return; }
-      approveMemberBtn.disabled = treeData[id].status === 'approved';
-      approveMemberBtn.textContent = treeData[id].status === 'approved' ? 'Aprovado' : 'Validar';
+      approveMemberBtn.disabled = (treeData[id].status === 'approved' || !treeData[id].status);
+      approveMemberBtn.textContent = (treeData[id].status === 'approved' || !treeData[id].status) ? 'Aprovado' : 'Validar';
     }
 
     document.getElementById('addChildBtn').addEventListener('click', () => {
@@ -873,11 +885,34 @@
       construirArvore(); applyTransform(); closeModal();
     });
 
-    document.getElementById('delBtn').addEventListener('click', () => {
+    // ALTERAÇÃO/CORREÇÃO: Pedido de Apagar marca o estado como 'delete_pending' e envia para o servidor
+    document.getElementById('delBtn').addEventListener('click', async () => {
       if(!selectedPerson) return;
-      const id = selectedPerson.dataset.id; if(id==='root'){ alert('Não é possível apagar a raiz.'); return; }
-      const p = treeData[id].parent; if(p && treeData[p]) treeData[p].filhos = (treeData[p].filhos||[]).filter(x=>x!==id);
-      delete treeData[id]; construirArvore(); applyTransform(); closeModal();
+      const id = selectedPerson.dataset.id; 
+      if(id==='root'){ alert('Não é possível apagar a raiz.'); return; }
+      
+      if(!confirm('Tem a certeza de que deseja solicitar a eliminação deste membro? A alteração só ficará efetiva após a validação do administrador.')) {
+        return;
+      }
+
+      treeData[id].status = 'delete_pending';
+
+      try {
+        const res = await fetch('/api/arvore/publicar', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(treeData)
+        });
+        const text = await res.text();
+        const j = text ? JSON.parse(text) : {};
+        if (!res.ok || (j && j.status !== 'ok')) throw new Error(j.error || 'Erro ao guardar pedido de eliminação');
+        
+        await carregarArvoreValidada();
+        closeModal();
+        alert('Pedido de eliminação registado como "Apagar Pendente". Aguarda validação do administrador.');
+      } catch (err) {
+        alert('Erro ao registar eliminação: ' + (err.message || err));
+      }
     });
 
     function highlightFamily(id){ if(!treeData[id]) return; const relatives = new Set(); relatives.add(id); (treeData[id].filhos || []).forEach(f=>relatives.add(f)); if(treeData[id].parent) relatives.add(treeData[id].parent); document.querySelectorAll('.person').forEach(el=> el.classList.toggle('highlight', relatives.has(el.dataset.id))); }
@@ -1002,7 +1037,7 @@
         sessionStorage.setItem("admin_pwd_cache", pwdToUse);
 
         await carregarArvoreValidada();
-        alert('Todos os pendentes foram aprovados.');
+        alert('Todos os pendentes foram aprovados / processados.');
       } catch (err) {
         alert('Erro: ' + (err.message || err));
       } finally {
