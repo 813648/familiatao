@@ -10,22 +10,13 @@ export async function onRequestPost(context) {
       );
     }
 
-    // Apaga o membro/nó da base de dados D1
-    const info = await env.DB.prepare("DELETE FROM ARVORE_FAMILIA_DB WHERE id = ?")
-      .bind(id)
-      .run();
+    // Executa a eliminação no D1
+    await env.DB.prepare("DELETE FROM ARVORE_FAMILIA_DB WHERE id = ?").bind(id).run();
 
-    if (info.success) {
-      return new Response(
-        JSON.stringify({ success: true, message: "Removido com sucesso." }),
-        { status: 200, headers: { "Content-Type": "application/json" } }
-      );
-    } else {
-      return new Response(
-        JSON.stringify({ success: false, error: "Erro ao apagar no D1." }),
-        { status: 500, headers: { "Content-Type": "application/json" } }
-      );
-    }
+    return new Response(
+      JSON.stringify({ success: true, message: "Registo apagado com sucesso." }),
+      { status: 200, headers: { "Content-Type": "application/json" } }
+    );
   } catch (err) {
     return new Response(
       JSON.stringify({ success: false, error: err.message }),
