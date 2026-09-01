@@ -2,22 +2,22 @@ export async function onRequestPost(context) {
   try {
     const { request, env } = context;
     const body = await request.json();
-    const membros = body.membros || body;
 
-    if (!Array.isArray(membros)) {
+    // Aceita tanto se vier num objeto 'membros' como se o body inteiro for o objeto/array da árvore
+    const dadosArvore = body.membros || body;
+
+    if (!dadosArvore || (typeof dadosArvore !== 'object')) {
       return new Response(
-        JSON.stringify({ success: false, error: "Formato de dados inválido." }),
+        JSON.stringify({ status: 'error', error: "Formato de dados inválido." }),
         { status: 400, headers: { "Content-Type": "application/json" } }
       );
     }
 
-    // Converter a estrutura completa da árvore para JSON
-    const jsonDados = JSON.stringify(membros);
+    const jsonDados = JSON.stringify(dadosArvore);
 
-    // Atualiza o registo principal na tabela D1 (ou insere caso não exista)
-    // Ajusta o nome da tabela 'arvore_dados' ou 'arvore' conforme a tua estrutura D1
-    await env.DB.prepare(`
-      INSERT INTO arvore (id, dados, updated_at) 
+    // Corrigido para usar env.ARVORE_FAMILIA_DB e a tabela 'membros'
+    await env.ARVORE_FAMILIA_DB.prepare(`
+      INSERT INTO membros (id, dados, updated_at) 
       VALUES (1, ?, DATETIME('now'))
       ON CONFLICT(id) DO UPDATE SET 
         dados = excluded.dados,
@@ -25,13 +25,13 @@ export async function onRequestPost(context) {
     `).bind(jsonDados).run();
 
     return new Response(
-      JSON.stringify({ success: true, message: "Árvore e eliminações atualizadas na D1 com sucesso." }),
+      JSON.stringify({ status: 'ok', message: "Árvore atualizada com sucesso." }),
       { status: 200, headers: { "Content-Type": "application/json" } }
     );
 
   } catch (err) {
     return new Response(
-      JSON.stringify({ success: false, error: err.message }),
+      JSON.stringify({ status: 'error', error: err.message }),
       { status: 500, headers: { "Content-Type": "application/json" } }
     );
   }
