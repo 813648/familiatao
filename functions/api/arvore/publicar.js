@@ -1,35 +1,38 @@
 export async function onRequestPost(context) {
   try {
-    const body = await context.request.json();
-    
-    // Aqui fará a lógica para guardar os dados recebidos do frontend na tabela do D1.
-    // Exemplo genérico de atualização por cada elemento:
-    for (const id in body) {
-      const m = body[id];
-      await context.env.ARVORE_FAMILIA_DB.prepare(`
-        INSERT INTO membros (id, nome, naturalidade, matrimonio, obs, parent, filhos, status)
-        VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
-        ON CONFLICT(id) DO UPDATE SET
-          nome = ?2, naturalidade = ?3, matrimonio = ?4, obs = ?5, parent = ?6, filhos = ?7, status = ?8
-      `).bind(
-        m.id, 
-        m.nome, 
-        m.naturalidade, 
-        m.matrimonio, 
-        m.obs, 
-        m.parent || null, 
-        JSON.stringify(m.filhos || []), 
-        m.status || 'approved'
-      ).run();
+    const { request, env } = context;
+    const body = await request.json();
+    const membros = body.membros || body;
+
+    if (!Array.isArray(membros)) {
+      return new Response(
+        JSON.stringify({ success: false, error: "Formato de dados inválido." }),
+        { status: 400, headers: { "Content-Type": "application/json" } }
+      );
     }
 
-    return new Response(JSON.stringify({ status: 'ok' }), {
-      headers: { "Content-Type": "application/json" }
-    });
+    // Converter a estrutura completa da árvore para JSON
+    const jsonDados = JSON.stringify(membros);
+
+    // Atualiza o registo principal na tabela D1 (ou insere caso não exista)
+    // Ajusta o nome da tabela 'arvore_dados' ou 'arvore' conforme a tua estrutura D1
+    await env.DB.prepare(`
+      INSERT INTO arvore (id, dados, updated_at) 
+      VALUES (1, ?, DATETIME('now'))
+      ON CONFLICT(id) DO UPDATE SET 
+        dados = excluded.dados,
+        updated_at = DATETIME('now')
+    `).bind(jsonDados).run();
+
+    return new Response(
+      JSON.stringify({ success: true, message: "Árvore e eliminações atualizadas na D1 com sucesso." }),
+      { status: 200, headers: { "Content-Type": "application/json" } }
+    );
+
   } catch (err) {
-    return new Response(JSON.stringify({ status: 'error', error: err.message }), {
-      status: 500,
-      headers: { "Content-Type": "application/json" }
-    });
+    return new Response(
+      JSON.stringify({ success: false, error: err.message }),
+      { status: 500, headers: { "Content-Type": "application/json" } }
+    );
   }
 }
