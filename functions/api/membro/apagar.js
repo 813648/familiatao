@@ -11,7 +11,7 @@ export async function onRequestPost(context) {
     }
 
     // Apaga o membro/nó da base de dados D1
-    const info = await env.DB.prepare("DELETE FROM arvore WHERE id = ?")
+    const info = await env.DB.prepare("DELETE FROM ARVORE_FAMILIA_DB WHERE id = ?")
       .bind(id)
       .run();
 
