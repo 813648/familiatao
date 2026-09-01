@@ -16,7 +16,7 @@ export async function onRequestPost(context) {
 
     // Atualiza o registo principal na tabela D1 (ou insere caso não exista)
     // Ajusta o nome da tabela 'arvore_dados' ou 'arvore' conforme a tua estrutura D1
-    await env.DB.prepare(`
+    await env.ARVORE_FAMILIA_DB.prepare(`
       INSERT INTO arvore (id, dados, updated_at) 
       VALUES (1, ?, DATETIME('now'))
       ON CONFLICT(id) DO UPDATE SET 
