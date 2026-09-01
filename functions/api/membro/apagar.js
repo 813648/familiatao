@@ -14,7 +14,7 @@ export async function onRequestPost(context) {
     }
 
     // AQUI ESTÁ A CORREÇÃO: Usamos env.ARVORE_FAMILIA_DB em vez de env.DB
-    const info = await env.ARVORE_FAMILIA_DB.prepare("DELETE FROM arvore WHERE id = ?").bind(id).run();
+    const info = await env.ARVORE_FAMILIA_DB.prepare("DELETE FROM membros WHERE id = ?").bind(id).run();
 
     return new Response(JSON.stringify({ success: true, info }), {
       status: 200,
