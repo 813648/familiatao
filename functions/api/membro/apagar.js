@@ -10,11 +10,11 @@ export async function onRequestPost(context) {
       );
     }
 
-    // Executa a eliminação no D1
+    // Executa a remoção na tabela D1
     await env.DB.prepare("DELETE FROM ARVORE_FAMILIA_DB WHERE id = ?").bind(id).run();
 
     return new Response(
-      JSON.stringify({ success: true, message: "Registo apagado com sucesso." }),
+      JSON.stringify({ success: true, message: "Registo apagado na D1." }),
       { status: 200, headers: { "Content-Type": "application/json" } }
     );
   } catch (err) {
