@@ -885,33 +885,37 @@
       construirArvore(); applyTransform(); closeModal();
     });
 
-    // ALTERAÇÃO/CORREÇÃO: Pedido de Apagar marca o estado como 'delete_pending' e envia para o servidor
+// Apaga permanentemente o membro da base de dados D1
     document.getElementById('delBtn').addEventListener('click', async () => {
       if(!selectedPerson) return;
       const id = selectedPerson.dataset.id; 
       if(id==='root'){ alert('Não é possível apagar a raiz.'); return; }
       
-      if(!confirm('Tem a certeza de que deseja solicitar a eliminação deste membro? A alteração só ficará efetiva após a validação do administrador.')) {
+      if(!confirm('Tem a certeza de que deseja eliminar permanentemente este membro da base de dados D1?')) {
         return;
       }
 
-      treeData[id].status = 'delete_pending';
-
       try {
-        const res = await fetch('/api/arvore/publicar', {
+        // Chamada direta à Function de apagar na Cloudflare
+        const res = await fetch('/api/membro/apagar', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(treeData)
+          body: JSON.stringify({ id: id })
         });
-        const text = await res.text();
-        const j = text ? JSON.parse(text) : {};
-        if (!res.ok || (j && j.status !== 'ok')) throw new Error(j.error || 'Erro ao guardar pedido de eliminação');
         
+        const j = await res.json();
+        
+        if (!res.ok || !j.success) {
+            throw new Error(j.error || 'Erro ao comunicar com a D1');
+        }
+        
+        // Remove da memória e atualiza a interface
+        delete treeData[id];
         await carregarArvoreValidada();
         closeModal();
-        alert('Pedido de eliminação registado como "Apagar Pendente". Aguarda validação do administrador.');
+        alert('Membro apagado permanentemente da base de dados D1.');
       } catch (err) {
-        alert('Erro ao registar eliminação: ' + (err.message || err));
+        alert('Erro ao eliminar: ' + (err.message || err));
       }
     });
 
