@@ -875,14 +875,33 @@
       approveMemberBtn.textContent = (treeData[id].status === 'approved' || !treeData[id].status) ? 'Aprovado' : 'Validar';
     }
 
-    document.getElementById('addChildBtn').addEventListener('click', () => {
+document.getElementById('addChildBtn').addEventListener('click', async () => {
       if(!selectedPerson) return;
       const parentId = selectedPerson.dataset.id;
       const newId = 'id'+Math.random().toString(36).slice(2,10);
+      
       treeData[newId] = { id:newId, nome:'Novo Filho', naturalidade:'', matrimonio:'', obs:'', parent:parentId, filhos:[], status:'pending' };
       treeData[parentId].filhos = treeData[parentId].filhos || [];
       treeData[parentId].filhos.push(newId);
-      construirArvore(); applyTransform(); closeModal();
+      
+      try {
+        const res = await fetch('/api/arvore/publicar', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(treeData)
+        });
+        const text = await res.text();
+        const j = text ? JSON.parse(text) : {};
+        if (!res.ok || (j && j.status !== 'ok' && j.success !== true)) {
+          throw new Error(j.error || 'Erro ao guardar novo filho');
+        }
+        
+        await carregarArvoreValidada();
+        closeModal();
+        alert('Novo filho adicionado e guardado como pendente com sucesso.');
+      } catch (err) {
+        alert('Erro ao guardar novo filho: ' + (err.message || err));
+      }
     });
 
 // Pedido de Apagar: Marca o membro como 'delete_pending' (vermelho) e aguarda validação do administrador
