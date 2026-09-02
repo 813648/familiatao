@@ -3,7 +3,7 @@ export async function onRequestGet(context) {
     const { env } = context;
     
     // Lê os dados exatamente da tabela 'arvore' onde o publicar grava
-    const result = await env.ARVORE_FAMILIA_DB.prepare("SELECT dados FROM arvore WHERE id = 1").first();
+    const result = await env.ARVORE_FAMILIA_DB.prepare("SELECT dados FROM membros WHERE id = 1").first();
     
     if (!result || !result.dados) {
       return new Response(JSON.stringify({}), {
