@@ -13,9 +13,9 @@ export async function onRequestPost(context) {
 
     const jsonDados = JSON.stringify(dadosArvore);
 
-    // Grava o JSON da árvore na tabela 'arvore' (linha id=1)
+    // CORRIGIDO: Grava na tabela 'membros'
     await env.ARVORE_FAMILIA_DB.prepare(`
-      INSERT INTO arvore (id, dados, updated_at) 
+      INSERT INTO membros (id, dados, updated_at) 
       VALUES (1, ?, DATETIME('now'))
       ON CONFLICT(id) DO UPDATE SET 
         dados = excluded.dados,
