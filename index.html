@@ -834,6 +834,29 @@
         confirmApproveBtn.disabled = true;
         confirmApproveBtn.textContent = 'A processar...';
 
+        // PASSO 1: Atualizar a árvore em memória com os dados do formulário!
+        if (selectedPerson) {
+            treeData[id].nome = document.getElementById('nome').value;
+            treeData[id].naturalidade = document.getElementById('nat').value;
+            treeData[id].matrimonio = document.getElementById('matr').value;
+            treeData[id].obs = document.getElementById('obs').value;
+            // Definimos localmente que está aprovado antes de enviar
+            treeData[id].status = 'approved'; 
+        }
+
+        // PASSO 2: Guardar todos os dados novos no endpoint central de publicação PRIMEIRO
+        const resPublish = await fetch('/api/arvore/publicar', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(treeData)
+        });
+        const publishText = await resPublish.text();
+        const publishJ = publishText ? JSON.parse(publishText) : {};
+        if (!resPublish.ok || (publishJ && publishJ.status !== 'ok')) {
+             throw new Error(publishJ.error || 'Falha ao guardar os dados editados antes de aprovar.');
+        }
+
+        // PASSO 3: Agora sim, enviar a aprovação de segurança com a password
         const res = await fetch('/api/membro/aprovar-membro', { 
           method: 'POST', 
           headers: { 'Content-Type': 'application/json' }, 
@@ -853,16 +876,17 @@
           throw new Error(j.error || 'Erro ao validar membro');
         }
 
+        // Sucesso: Guardar sessão e fechar
         sessionStorage.setItem("admin_logged", "true");
         sessionStorage.setItem("admin_pwd_cache", pwd);
 
         fecharModalPassword();
         closeModal();
-        alert('Membro processado/validado com sucesso.');
-        await carregarArvoreValidada();
+        alert('Dados guardados e membro validado com sucesso!');
+        await carregarArvoreValidada(); // Recarregar a UI
 
       } catch (err) {
-        alert('Erro ao validar: ' + (err.message || err));
+        alert('Erro na validação: ' + (err.message || err));
       } finally {
         confirmApproveBtn.disabled = false;
         confirmApproveBtn.textContent = 'Confirmar';
