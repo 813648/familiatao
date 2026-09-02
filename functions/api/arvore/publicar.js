@@ -4,7 +4,6 @@ export async function onRequestPost(context) {
     const body = await request.json();
     const dadosArvore = body.membros || body;
 
-    // Aceita o objeto treeData enviado pelo index.html
     if (!dadosArvore || typeof dadosArvore !== 'object') {
       return new Response(
         JSON.stringify({ status: 'error', success: false, error: "Formato de dados inválido." }),
@@ -14,9 +13,9 @@ export async function onRequestPost(context) {
 
     const jsonDados = JSON.stringify(dadosArvore);
 
-    // Grava na tabela 'membros' da base de dados D1 com o binding correto
+    // Grava o JSON da árvore na tabela 'arvore' (linha id=1)
     await env.ARVORE_FAMILIA_DB.prepare(`
-      INSERT INTO membros (id, dados, updated_at) 
+      INSERT INTO arvore (id, dados, updated_at) 
       VALUES (1, ?, DATETIME('now'))
       ON CONFLICT(id) DO UPDATE SET 
         dados = excluded.dados,
@@ -24,7 +23,7 @@ export async function onRequestPost(context) {
     `).bind(jsonDados).run();
 
     return new Response(
-      JSON.stringify({ status: 'ok', success: true, message: "Árvore e alterações pendentes guardadas com sucesso na D1." }),
+      JSON.stringify({ status: 'ok', success: true, message: "Árvore atualizada com sucesso na D1." }),
       { status: 200, headers: { "Content-Type": "application/json" } }
     );
 
